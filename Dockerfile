@@ -1,4 +1,4 @@
 FROM webdevops/php-nginx
 
-COPY index.php /app
-
+COPY *.php /app/
+COPY *.js /app/

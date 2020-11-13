@@ -14,18 +14,7 @@ if (!is_dir(getcwd()."/iv")) {
   mkdir(getcwd()."/iv",0700,true);
 }
 
-
 `find keys/ -mtime +5 -exec rm -f {} \;`;
-
-if (preg_match("/slack/", $_SERVER['HTTP_USER_AGENT'])){
-  print "One time url service.";
-  exit(0);
-} 
-
-if (preg_match("/TelegramBot/", $_SERVER['HTTP_USER_AGENT'])){
-  print "One time url service.";
-  exit(0);
-}
 
 function get_uid() {
   $uid = $_COOKIE['uid'];
@@ -34,7 +23,6 @@ function get_uid() {
   }
   return $uid;
 }
-
 
 function getRandomString($length = 20) {
   $validCharacters = "abcdefghijklmnopqrstuxyvwzABCDEFGHIJKLMNOPQRSTUXYVWZ0123456789";
@@ -62,14 +50,6 @@ function decrypt($fname, $mess, $pass) {
   
 }
 
-function no_such_hash(){
-  print header("Refresh: 4; URL=https://$domain/");
-  print "<html><head><meta http-equiv='content-type' content='text/html; charset=utf-8' /></head><body>";
-  print "<center>Нет такого ХЕША, либо ХЕШ был уже открыт.</center>";
-  print "</body></html>";
-  exit(0);
-}
-
 function get_timestamp(){
   $date = new DateTime();
   return $date->getTimestamp();
@@ -92,6 +72,9 @@ if ($_POST['text']){
     $json_data['encrypted_text'] = $enc_data['enc_string'];
     $json_data['iv']             = $enc_data['iv'];
     $json_data['encrypted']      = true;
+  }else{
+    $json_data['text'] = $text;
+    $json_data['encrypted'] = false;
   }
 
   fwrite($fp, json_encode($json_data));
@@ -101,42 +84,9 @@ if ($_POST['text']){
 }
 
 if ($_GET['view']){
-  $fname = $_GET['view'];
-  $result = preg_match("/^[a-zA-Z0-9]+$/",$fname);
-  if ($result){
-    if (file_exists("keys/$fname")) {
-      $fp = fopen("keys/$fname","r") or print "";
-      if ($fp){
-        $text = fread($fp, filesize("keys/$fname"));
-        fclose($fp);
-        `rm "keys/$fname"`;
-        print "<html><head><meta http-equiv='content-type' content='text/html; charset=utf-8' /></head><body>";
-        print $text;
-        print "</body></html>";
-        exit(0);
-      }
-    }
-    no_such_hash();
-  }
+  require('view_template.php');
+  exit(0);
 }
-?>
 
-<html>
-<head>
-<title>Inigma</title>
-<meta http-equiv='content-type' content='text/html; charset=utf-8' />
-</head>
-<body>
-  <center>
-    <form action="/" method=POST>
-      <p>
-      Text:<br><textarea cols=140 rows=10 name="text"></textarea></p>
-      <p><input type=submit></p>
-      <p><input type="checkbox" name="multiopen" value="Multiopen link" /> <font color=grey>Link can be opened only by one client MANY TIMES.</font></p>
-      <p>Password:<br><input type="password" name="open_pwd" /><br><font color=grey>Second factor, for best security. Leave empty to disable.</font></p>
-      <p>TTL(in days):<br><input type="text" name="ttl" value="10" /><br><font color=grey>Time to link live in days. Zero (0) to store permanently.</font></p>
-    </form>
-<br />
-</center>
-</body>
-</html>
+require('index_template.php');
+?>
