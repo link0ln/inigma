@@ -1,0 +1,23 @@
+name = "inigma"
+main = "index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+routes = [ { pattern = "inigma.idone.su", custom_domain = true } ]
+
+# R2 bucket binding
+[[env.production.r2_buckets]]
+binding = "INIGMA_STORAGE"
+bucket_name = "inigma-storage"
+
+# Переменные окружения
+[env.production.vars]
+DOMAIN = "inigma.idone.su"
+CLEANUP_DAYS = "50"
+
+[env.production.triggers]
+crons = ["0 2 * * *"] # Ежедневно в 2:00
+
+# ВАЖНО: Для кастомного домена настройте его через Cloudflare Dashboard, а не через wrangler.toml.
+# Инструкции см. в README.md (раздел "Настройка Custom Domain").

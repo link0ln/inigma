@@ -1,0 +1,18 @@
+{
+  "name": "inigma-cloudflare",
+  "version": "1.0.0",
+  "description": "Inigma secure message sharing service for Cloudflare Workers",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && cd build && wrangler deploy",
+    "deploy:production": "npm run build && cd build && wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "wrangler": "^4.20.1"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.0.0"
+  }
+}
