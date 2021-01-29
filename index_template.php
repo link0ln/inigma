@@ -8,16 +8,15 @@
   <center>
     <form action="/" method=POST>
       <p>
-      Text:<br><textarea cols=140 rows=10 name="text" id="text" ></textarea></p>
-      <p><input type=submit id="submit2" /></p>
-      <p><input type=button id="submit" /></p>
-      <p><input type=hidden id="encrypted_text" name="encrypted_text" /></p>
-      <p><input type=hidden id="encrypted" value="false" name="encrypted" /></p>
-      <p><input type="checkbox" name="multiopen" value="true" /> <font color=grey>Link can be opened only by one client MANY TIMES.</font></p>
+      Text:<br><textarea cols=140 rows=10 name="message" id="message" ></textarea></p>
+      <p><input type=button id="submit" value=submit /></p>
+      <p><input type="checkbox" name="multiopen" value="true" id="multiopen" /> <font color=grey>Link can be opened only by one client MANY TIMES.</font></p>
       <p>Password:<br><input type="password" name="password" id="password" /><br><font color=grey>Second factor, for best security. Leave empty to disable.</font></p>
-      <p>TTL(in days):<br><input type="text" name="ttl" value="10" /><br><font color=grey>Time to link live in days. Zero (0) to store permanently.</font></p>
+      <p>TTL(in days):<br><input type="text" name="ttl" value="10" id="ttl" /><br><font color=grey>Time to link live in days. Zero (0) to store permanently.</font></p>
     </form>
 <br />
+<div id="secure_link">
+</div>
 </center>
 <script language=javascript>
 
@@ -49,7 +48,6 @@
       true,
       [ "encrypt", "decrypt" ]
     );
-  
     return window.crypto.subtle.encrypt(
       {
         name: "AES-GCM",
@@ -60,23 +58,52 @@
     );
   }
 
-  $('#submit').on('click', function(){
-    if ($('#password').val() != ""){
-      let message  = $('#text').val();
-      let password = $('#password').val();
+  function arrayBufferToBase64(arrayBuffer) {
+    var byteArray = new Uint8Array(arrayBuffer);
+    var byteString = '';
+    for(var i=0; i < byteArray.byteLength; i++) {
+        byteString += String.fromCharCode(byteArray[i]);
+    }
+    var b64 = window.btoa(byteString);
 
+    return b64;
+  }
+
+  $('#submit').on('click', function(){
+    let message   = $('#message').val();
+    let password  = $('#password').val();
+    let multiopen = $('#multiopen').val();
+    let ttl       = $('#ttl').val();
+
+    if ($('#password').val() != ""){
       salt = window.crypto.getRandomValues(new Uint8Array(16));
       iv = window.crypto.getRandomValues(new Uint8Array(16));
-      encrypted_text = encrypt(message, salt, iv);
+      encrypted_message = encrypt(message, salt, iv);
 
-      console.log(encrypted_text);
-      console.log(btoa(encrypted_text));
- 
-      $('#text').val("");
-      $('#password').val("");
-      $('#encrypted_text').val(JSON.stringify(encrypted_text));
-      $('#encrypted').val("true");
-      
+      iv_b64   = arrayBufferToBase64(iv);
+      salt_b64 = arrayBufferToBase64(salt); 
+
+      encrypted_message.then( function(result){
+        encrypted_message_b64 = arrayBufferToBase64(result);
+
+
+        console.log(result);
+        console.log(iv);
+        console.log(salt);
+
+        console.log(encrypted_message_b64);
+        console.log(iv_b64);
+        console.log(salt_b64);
+
+        
+        $.post('/', { encrypted_message: encrypted_message_b64, encrypted: "true", iv: iv_b64, salt: salt_b64, ttl: ttl, multiopen: multiopen}).done(function(data) {
+          $('#secure_link').html(data);
+        });
+      });
+    } else {
+      $.post('/', { message: message, encrypted: "false", ttl: ttl, multiopen: multiopen}).done(function(data) {
+          $('#secure_link').html(data);
+        });
     }
   });
 </script>

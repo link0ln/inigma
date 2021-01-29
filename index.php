@@ -43,20 +43,24 @@ function get_timestamp(){
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST'){
-  $text = $_POST['text'];
-  $multiopen = $_POST['multiopen'];
-  $encrypted_text = $_POST['encrypted_text'];
-  $encrypted = $_POST['encrypted'];
-  $alive_timestamp = $_POST['ttl']*24*60*60+get_timestamp();
+  $message           = $_POST['message'];
+  $multiopen         = $_POST['multiopen'];
+  $encrypted_message = $_POST['encrypted_message'];
+  $encrypted         = $_POST['encrypted'];
+  $iv                = $_POST['iv'];
+  $salt              = $_POST['salt'];
+  $alive_timestamp   = $_POST['ttl']*24*60*60+get_timestamp();
   $fname = getRandomString(40);
   $fp = fopen("keys/$fname", "w");
   $json_data = array();
-  $json_data['multiopen']       = $multiopen;
-  $json_data['alive_timestamp'] = $alive_timestamp;
-  $json_data['uid']             = get_uid();
-  $json_data['encrypted']       = $encrypted;
-  $json_data['encrypted_text']  = $encrypted_text;
-  $json_data['text']            = $text;
+  $json_data['multiopen']         = $multiopen;
+  $json_data['alive_timestamp']   = $alive_timestamp;
+  $json_data['uid']               = get_uid();
+  $json_data['encrypted']         = $encrypted;
+  $json_data['encrypted_message'] = $encrypted_message;
+  $json_data['message']           = $message;
+  $json_data['iv']                = $iv;
+  $json_data['salt']              = $salt;
 
   fwrite($fp, json_encode($json_data));
   fclose($fp);
