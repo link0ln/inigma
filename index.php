@@ -37,28 +37,16 @@ function getRandomString($length = 20) {
   return $result;
 }
 
-function encrypt($fname, $mess, $pass) {
-  $aes256Key = hash("SHA256", $pass, true);
-  srand((double) microtime() * 1000000);
-  $enc_data['iv'] = mcrypt_create_iv(mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_CBC), MCRYPT_RAND);
-  $enc_data['enc_string'] = rtrim(base64_encode(mcrypt_encrypt(MCRYPT_RIJNDAEL_256, $aes256Key, $mess, MCRYPT_MODE_CBC, $iv)), "\0\3");
-  return $enc_data;
-}
-
-function decrypt($fname, $mess, $pass) {
-  $aes256Key = hash("SHA256", $pass, true);
-  
-}
-
 function get_timestamp(){
   $date = new DateTime();
   return $date->getTimestamp();
 }
 
-if ($_POST['text']){
+if ($_SERVER['REQUEST_METHOD'] === 'POST'){
   $text = $_POST['text'];
   $multiopen = $_POST['multiopen'];
-  $pass = $_POST['password'];
+  $encrypted_text = $_POST['encrypted_text'];
+  $encrypted = $_POST['encrypted'];
   $alive_timestamp = $_POST['ttl']*24*60*60+get_timestamp();
   $fname = getRandomString(40);
   $fp = fopen("keys/$fname", "w");
@@ -66,16 +54,9 @@ if ($_POST['text']){
   $json_data['multiopen']       = $multiopen;
   $json_data['alive_timestamp'] = $alive_timestamp;
   $json_data['uid']             = get_uid();
-  $json_data['encrypted']       = false;
-  if ($pass != ""){
-    $enc_data = encrypt($fname, $text, $pass);
-    $json_data['encrypted_text'] = $enc_data['enc_string'];
-    $json_data['iv']             = $enc_data['iv'];
-    $json_data['encrypted']      = true;
-  }else{
-    $json_data['text'] = $text;
-    $json_data['encrypted'] = false;
-  }
+  $json_data['encrypted']       = $encrypted;
+  $json_data['encrypted_text']  = $encrypted_text;
+  $json_data['text']            = $text;
 
   fwrite($fp, json_encode($json_data));
   fclose($fp);
