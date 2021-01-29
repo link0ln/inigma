@@ -1,6 +1,6 @@
 <?php
 
-$default = '{"text":"No such hash!", "redirect_root":"true"}';
+$default = '{"message":"No such hash!", "redirect_root":"true"}';
 
 if ($_POST['view']){
   $fname = $_POST['view'];

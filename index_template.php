@@ -2,7 +2,8 @@
 <head>
 <title>Inigma</title>
 <meta http-equiv='content-type' content='text/html; charset=utf-8' />
-<script src='https://code.jquery.com/jquery-3.5.1.min.js'></script>
+<script type="text/javascript" src='https://code.jquery.com/jquery-3.5.1.min.js'></script>
+<script type="text/javascript" src='https://<?php print $domain; ?>/functions.js'></script>
 </head>
 <body>
   <center>
@@ -19,56 +20,6 @@
 </div>
 </center>
 <script language=javascript>
-
-  function getKeyMaterial() {
-    let password = $('#password').val();
-    let enc = new TextEncoder();
-    return window.crypto.subtle.importKey(
-      "raw",
-      enc.encode(password),
-      "PBKDF2",
-      false,
-      ["deriveBits", "deriveKey"]
-    );
-  }
-
-  async function encrypt(plaintext, salt, iv) {
-    let enc = new TextEncoder();
-    enc_plaintext = enc.encode(plaintext);
-    let keyMaterial = await getKeyMaterial();
-    let key = await window.crypto.subtle.deriveKey(
-      {
-        "name": "PBKDF2",
-        salt: salt,
-        "iterations": 100000,
-        "hash": "SHA-256"
-      },
-      keyMaterial,
-      { "name": "AES-GCM", "length": 256},
-      true,
-      [ "encrypt", "decrypt" ]
-    );
-    return window.crypto.subtle.encrypt(
-      {
-        name: "AES-GCM",
-        iv: iv
-      },
-      key,
-      enc_plaintext
-    );
-  }
-
-  function arrayBufferToBase64(arrayBuffer) {
-    var byteArray = new Uint8Array(arrayBuffer);
-    var byteString = '';
-    for(var i=0; i < byteArray.byteLength; i++) {
-        byteString += String.fromCharCode(byteArray[i]);
-    }
-    var b64 = window.btoa(byteString);
-
-    return b64;
-  }
-
   $('#submit').on('click', function(){
     let message   = $('#message').val();
     let password  = $('#password').val();
@@ -85,17 +36,6 @@
 
       encrypted_message.then( function(result){
         encrypted_message_b64 = arrayBufferToBase64(result);
-
-
-        console.log(result);
-        console.log(iv);
-        console.log(salt);
-
-        console.log(encrypted_message_b64);
-        console.log(iv_b64);
-        console.log(salt_b64);
-
-        
         $.post('/', { encrypted_message: encrypted_message_b64, encrypted: "true", iv: iv_b64, salt: salt_b64, ttl: ttl, multiopen: multiopen}).done(function(data) {
           $('#secure_link').html(data);
         });
