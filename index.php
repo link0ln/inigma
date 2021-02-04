@@ -14,7 +14,7 @@ if (!is_dir(getcwd()."/iv")) {
   mkdir(getcwd()."/iv",0700,true);
 }
 
-`find keys/ -mtime +5 -exec rm -f {} \;`;
+`find keys/ -mtime +50 -exec rm -f {} \;`;
 
 function get_uid() {
   $uid = $_COOKIE['uid'];
@@ -49,12 +49,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
   $encrypted         = $_POST['encrypted'];
   $iv                = $_POST['iv'];
   $salt              = $_POST['salt'];
-  $alive_timestamp   = $_POST['ttl']*24*60*60+get_timestamp();
+
+  if ( (isset($_POST['ttl'])) && (is_numeric($_POST['ttl'])) ){
+    $ttl               = $_POST['ttl']*24*60*60+get_timestamp();
+  }else{
+    $ttl = 1*24*60*60+get_timestamp();
+  }
+
   $fname = getRandomString(40);
   $fp = fopen("keys/$fname", "w");
   $json_data = array();
   $json_data['multiopen']         = $multiopen;
-  $json_data['alive_timestamp']   = $alive_timestamp;
+  $json_data['ttl']               = $ttl;
   $json_data['uid']               = get_uid();
   $json_data['encrypted']         = $encrypted;
   $json_data['encrypted_message'] = $encrypted_message;
@@ -64,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
 
   fwrite($fp, json_encode($json_data));
   fclose($fp);
-  print "<center>https://$domain/?view=".$fname."</center>";
+  print "https://$domain/?view=".$fname;
   exit(0);
 }
 

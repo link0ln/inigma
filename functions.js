@@ -88,3 +88,33 @@ async function decrypt(enc_plaintext, salt, iv) {
     enc_plaintext
   );
 }
+
+function makeid(length) {
+   var result           = '';
+   var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+   var charactersLength = characters.length;
+   for ( var i = 0; i < length; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+   }
+   return result;
+}
+
+function get_uid() {
+  var uid = localStorage.getItem('uid');
+  if ( uid == null){
+    uid = makeid(12);
+    localStorage.setItem('uid', uid);
+    return uid;
+  }
+  return uid;
+}
+
+function get_pass() {
+  var pass = localStorage.getItem('pass');
+  if ( pass == null){
+    pass = makeid(24);
+    localStorage.setItem('pass', pass);
+    return pass;
+  }
+  return pass;
+}
