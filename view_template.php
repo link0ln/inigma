@@ -7,9 +7,11 @@
 <script type="text/javascript" src='https://<?php print $domain; ?>/functions.js'></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+<link rel="stylesheet" href="https://<?php print $domain; ?>/main.css" crossorigin="anonymous">
 </head>
 <body>
-<div class="container pt-3 my-3 border text-center">
+<div class="container-custom">
+  <div class="container pt-3 my-3 border text-center">
     <div id='info'>
       <div class="alert alert-danger" role="alert">
         If this is one time open link, please save immediately, you cant get data again after been "get secret" pushed!!!
@@ -33,6 +35,7 @@
     </div>
     <p><pre><div id='secret'></div></pre></p>
     <p><div id='warn' style="color: red"></div></p>
+  </div>
 </div>
 <script language=javascript>
   view = $.urlParam('view');

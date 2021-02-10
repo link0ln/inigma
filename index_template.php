@@ -8,6 +8,7 @@
 <script type="text/javascript" src='https://<?php print $domain; ?>/functions.js'></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+<link rel="stylesheet" href="https://<?php print $domain; ?>/main.css" crossorigin="anonymous">
 </head>
 <body>
 
@@ -30,7 +31,8 @@
   </div>
 </div>
 
-<div class="container pt-3 my-3 border text-center">
+<div class="container-custom">
+<div class="container pt-3 my-3 border text-center container-custom">
   <div class="mb-3"> 
     <label for="message">Secure text</label>
     <textarea class="form-control" id="message" cols=140 rows=10 ></textarea>
@@ -69,6 +71,7 @@
 
 </div>
 
+</div>
 <script language=javascript>
   $('#uid').text(get_uid());
   $('#pass').text(get_pass());
