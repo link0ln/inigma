@@ -118,3 +118,15 @@ function get_pass() {
   }
   return pass;
 }
+
+function set_uid(uid) {
+  if ( uid != null ){
+    localStorage.setItem('uid', uid);
+  }
+}
+
+function set_pass(pass) {
+  if ( pass != null){
+    localStorage.setItem('pass', pass);
+  }
+}

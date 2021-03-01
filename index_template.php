@@ -31,6 +31,35 @@
   </div>
 </div>
 
+<div class="modal fade" id="modal-show-credentials" tabindex="-1" data-backdrop="static" data-keyboard="false" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Local storage credentials</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="false">×</span>
+        </button>
+      </div>
+      <div class="modal-body" id="form-credentials" >
+        <div class="input-group mb-3">
+          This is your atomaticly generated credentials, it can be edited, and submitted, if you want to open multilink credentials on different computers.
+        </div>
+        <div class="input-group mb-3">
+          <input type="text" placeholder="uid" class="form-control" id="uid">
+        </div>
+        <div class="input-group mb-3">
+          <input type="text" placeholder="password" class="form-control" id="pass">
+        </div>
+      </p></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="credentials-submit" data-dismiss="modal">Submit</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <div class="container-custom">
 <div class="container pt-3 my-3 border text-center container-custom">
   <div class="mb-3"> 
@@ -55,7 +84,7 @@
   <div class="container-sm border pt-3 my-3">
   <label for="pasword">Password:</label>
   <div class="input-group mb-3">
-    <input type="password" class="form-control" id="password" aria-describedby="PasswordHelp">
+    <input type="password" class="form-control" id="password" aria-describedby="PasswordHelp" readonly onfocus="this.removeAttribute('readonly');">
   </div>
   <small id="PasswordHelp" class="form-text text-muted">Second factor, for best security. Leave empty to disable.</small>
   </div>
@@ -63,23 +92,38 @@
   <div class="container-sm border pt-3 my-3">
   <label for="ttl">TTL(in days):</label>
   <div class="input-group mb-3">
-    <input type="text" class="form-control" id="ttl">
+    <input type="text" class="form-control" id="ttl" value="100">
   </div>
   <small id="TtlHelp" class="form-text text-muted">Time to link live in days. Zero (0) to store permanently.</small>
   </div>
 
+  <div class="container-sm border pt-3 my-3">
+    <button type="button" id="show-credentials" class="btn btn-primary" data-toggle="modal" data-target="#modal-show-credentials">Show you credentials</button> 
+  </div>
 
 </div>
 
 </div>
 <script language=javascript>
-  $('#uid').text(get_uid());
-  $('#pass').text(get_pass());
+  $('#uid').val(get_uid());
+  $('#pass').val(get_pass());
+  $('#credentials-submit').on('click', function(){
+    set_uid($('#uid').val());
+    set_pass($('#pass').val());
+  });
+  $('#show-credentials').on('click', function(){
+    $('#uid').val(get_uid());
+    $('#pass').val(get_pass());
+  });
   $('#submit').on('click', function(){
     let message   = $('#message').val();
     let password  = $('#password').val();
-    let multiopen = $('#multiopen').val();
+    let multiopen = false;
     let ttl       = $('#ttl').val();
+
+    if ($('#multiopen').is(":checked")) {
+      multiopen = true;
+    }
 
     if ($('#password').val() != ""){
       salt = window.crypto.getRandomValues(new Uint8Array(16));
