@@ -48,7 +48,7 @@
     decrypted = decrypt(encrypted_message, salt, iv, password);
 
     decrypted.then( function(decrypted_message_array_buffer){
-      decrypted_message = array_buffer2str(decrypted_message_array_buffer);
+      decrypted_message = new TextDecoder().decode(decrypted_message_array_buffer);
       $("#secret").text(decrypted_message);
     });
   }
@@ -84,7 +84,7 @@
     decrypted = decrypt(encrypted_message, salt, iv, password);
 
     decrypted.then( function(decrypted_message_array_buffer){
-      decrypted_message = array_buffer2str(decrypted_message_array_buffer); 
+      decrypted_message = new TextDecoder().decode(decrypted_message_array_buffer);
       $("#secret").text(decrypted_message);
       if (json_data['own_by'] == undefined) {
         send_update(decrypted_message);
