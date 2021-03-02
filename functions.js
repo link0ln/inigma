@@ -27,8 +27,7 @@ function base64ToArrayBuffer(b64) {
 }
 
 
-function getKeyMaterial() {
-  let password = $('#password').val();
+function getKeyMaterial(password) {
   let enc = new TextEncoder();
   return window.crypto.subtle.importKey(
     "raw",
@@ -39,10 +38,10 @@ function getKeyMaterial() {
   );
 }
 
-async function encrypt(plaintext, salt, iv) {
+async function encrypt(plaintext, salt, iv, password) {
   let enc = new TextEncoder();
   enc_plaintext = enc.encode(plaintext);
-  let keyMaterial = await getKeyMaterial();
+  let keyMaterial = await getKeyMaterial(password);
   let key = await window.crypto.subtle.deriveKey(
     {
       "name": "PBKDF2",
@@ -65,8 +64,8 @@ async function encrypt(plaintext, salt, iv) {
   );
 }
 
-async function decrypt(enc_plaintext, salt, iv) {
-  let keyMaterial = await getKeyMaterial();
+async function decrypt(enc_plaintext, salt, iv, password) {
+  let keyMaterial = await getKeyMaterial(password);
   let key = await window.crypto.subtle.deriveKey(
     {
       "name": "PBKDF2",

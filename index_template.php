@@ -74,7 +74,7 @@
 
   <div class="container-sm border pt-3 my-3">
   <div class="form-check">
-    <input class="form-check-input" type="checkbox" value="" id="multiopen">
+    <input class="form-check-input" type="checkbox" value="" id="multiopen" checked>
     <label class="form-check-label" for="multiopen">
       Link can be opened only by one client MANY TIMES.
     </label>
@@ -98,7 +98,7 @@
   </div>
 
   <div class="container-sm border pt-3 my-3">
-    <button type="button" id="show-credentials" class="btn btn-primary" data-toggle="modal" data-target="#modal-show-credentials">Show you credentials</button> 
+    <button type="button" id="show-credentials" class="btn btn-primary my-3" data-toggle="modal" data-target="#modal-show-credentials">Show your credentials</button> 
   </div>
 
 </div>
@@ -128,7 +128,7 @@
     if ($('#password').val() != ""){
       salt = window.crypto.getRandomValues(new Uint8Array(16));
       iv = window.crypto.getRandomValues(new Uint8Array(16));
-      encrypted_message = encrypt(message, salt, iv);
+      encrypted_message = encrypt(message, salt, iv, password);
 
       iv_b64   = arrayBufferToBase64(iv);
       salt_b64 = arrayBufferToBase64(salt); 
