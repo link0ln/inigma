@@ -71,16 +71,6 @@
     <button type="button" id="submit" class="btn btn-primary" data-toggle="modal" data-target="#modal-secure-link">Process</button>
   </div>
 
-
-  <div class="container-sm border pt-3 my-3">
-  <div class="form-check">
-    <input class="form-check-input" type="checkbox" value="" id="multiopen" checked>
-    <label class="form-check-label" for="multiopen">
-      Link can be opened only by one client MANY TIMES.
-    </label>
-  </div>
-  </div>
-
   <div class="container-sm border pt-3 my-3">
   <label for="pasword">Password:</label>
   <div class="input-group mb-3">
@@ -118,12 +108,8 @@
   $('#submit').on('click', function(){
     let message   = $('#message').val();
     let password  = $('#password').val();
-    let multiopen = false;
+    let multiopen = true;
     let ttl       = $('#ttl').val();
-
-    if ($('#multiopen').is(":checked")) {
-      multiopen = true;
-    }
 
     if ($('#password').val() != ""){
       salt = window.crypto.getRandomValues(new Uint8Array(16));

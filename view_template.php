@@ -13,9 +13,6 @@
 <div class="container-custom">
   <div class="container pt-3 my-3 border text-center">
     <div id='info'>
-      <div class="alert alert-danger" role="alert">
-        This is one-time link, which will be removed after openning, therefore it's better to save this data locally!!!
-      </div>
       <p><button type="button" id='get_secret' class="btn btn-primary">Get secret</button></p>
     </div>
    
