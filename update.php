@@ -25,7 +25,6 @@
       return 0;
     }
     $json_obj->{'encrypted'} = "true";
-    $json_obj->{'ttl'} = $json_obj->{'ttl'} * 2;
     $json_obj->{'encrypted_message'} = $encrypted_message;
     $json_obj->{'message'} = "";
     $json_obj->{'own_by'} = $uid;
