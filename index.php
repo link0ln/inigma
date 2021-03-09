@@ -52,9 +52,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
 
   if ( (isset($_POST['ttl'])) && (is_numeric($_POST['ttl'])) ){
     $ttl               = $_POST['ttl']*24*60*60+get_timestamp();
+    if ( $_POST['ttl'] == 0 ){
+      $ttl = 9999999999;
+    }
   }else{
     $ttl = 1*24*60*60+get_timestamp();
   }
+  if ()
 
   $fname = getRandomString(40);
   $fp = fopen("keys/$fname", "w");
