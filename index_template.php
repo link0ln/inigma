@@ -82,7 +82,7 @@
   <div class="container-sm border pt-3 my-3">
   <label for="ttl">TTL(in days):</label>
   <div class="input-group mb-3">
-    <input type="text" class="form-control" id="ttl" value="100">
+    <input type="text" class="form-control" id="ttl" value="10">
   </div>
   <small id="TtlHelp" class="form-text text-muted">Time to link live in days. Zero (0) to store permanently.</small>
   </div>
