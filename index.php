@@ -58,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
   }else{
     $ttl = 1*24*60*60+get_timestamp();
   }
-  if ()
 
   $fname = getRandomString(40);
   $fp = fopen("keys/$fname", "w");
