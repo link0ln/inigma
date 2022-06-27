@@ -18,7 +18,7 @@ build-docker:
  
 deploy-argocd:
   rules:
-    when: manual
+    - when: manual
   interruptible: true
   stage: deploy
   image: argoproj/argocd:latest
