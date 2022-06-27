@@ -19,6 +19,7 @@ build-docker:
  
 deploy-argocd:
   interruptible: true
+  stage: deploy
   image: argoproj/argocd:latest
   services:
     - argoproj/argocd:latest
