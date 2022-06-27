@@ -26,3 +26,5 @@ deploy-argocd:
     - ARGOCD_SERVER: "argocd.wvservices.com"
     - ARGOCD_AUTH_TOKEN: "aaaaaaaaa"
     - ARGOCD_GRPC_WEB: "true"
+  script:
+    - app set imgname
