@@ -24,8 +24,10 @@ deploy-argocd:
   services:
     - argoproj/argocd:latest
   variables:
-    ARGOCD_SERVER: "argocd.wvservices.com"
-    ARGOCD_AUTH_TOKEN: "aaaaaaaaa"
-    ARGOCD_GRPC_WEB: "true"
+    ARGOCD_VAR: "argovar"
+    ARGOCD_VAR2: "aaaaaaaaa"
+    ARGOCD_VAR3: "true"
   script:
-    - app set imgname
+    - argocd app set inigma-test --server $ARGOCD_SERVER $ARGOCD_TOKEN --grpc-web -p imageCredentials.registry=$CI_REGISTRY_IMAGE
+    - argocd app set inigma-test --server $ARGOCD_SERVER $ARGOCD_TOKEN --grpc-web -p imageCredentials.username=$CI_REGISTRY_USER
+    - argocd app set inigma-test --server $ARGOCD_SERVER $ARGOCD_TOKEN --grpc-web -p imageCredentials.password=$CI_REGISTRY_PASSWORD
