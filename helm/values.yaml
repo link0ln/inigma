@@ -10,6 +10,9 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
+dpr.enabled: true
+dpr.existingSecretName: regcred
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
