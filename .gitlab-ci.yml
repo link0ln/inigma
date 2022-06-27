@@ -23,6 +23,6 @@ image: argoproj/argocd:latest
 services:
   - argoproj/argocd:latest
 variables:
-  - ARGOCD_SERVER=argocd.wvservices.com
-  - ARGOCD_AUTH_TOKEN=aaaaaaaaa
-  - ARGOCD_GRPC_WEB=true
+  - ARGOCD_SERVER: argocd.wvservices.com
+  - ARGOCD_AUTH_TOKEN: aaaaaaaaa
+  - ARGOCD_GRPC_WEB: true
