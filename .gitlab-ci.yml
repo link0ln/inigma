@@ -1,0 +1,28 @@
+stages:
+  - build
+  - deploy
+  
+  
+build-docker:
+interruptible: true
+image: docker:20.10.7-dind
+stage: build
+services:
+  - docker:20.10.7-dind
+variables:
+  TAG: $CI_COMMIT_REF_NAME-$CI_PIPELINE_IID
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  - docker build -t $IMAGE_TAG .
+  - docker push $IMAGE_TAG
+ 
+deploy-argocd:
+interruptible: true
+image: argoproj/argocd:latest
+services:
+  - argoproj/argocd:latest
+variables:
+  - ARGOCD_SERVER=argocd.wvservices.com
+  - ARGOCD_AUTH_TOKEN=aaaaaaaaa
+  - ARGOCD_GRPC_WEB=true
