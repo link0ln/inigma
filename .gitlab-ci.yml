@@ -1,8 +1,7 @@
 stages:
   - build
   - deploy
-  
-  
+
 build-docker:
   interruptible: true
   image: docker:20.10.7-dind
