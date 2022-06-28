@@ -21,6 +21,9 @@ deploy-prod:
     - when: manual
   interruptible: true
   stage: deploy
+  environment:
+    name: prod
+    url: https://inigma-dev.wvservices.com
   image: argoproj/argocd:latest
   services:
     - argoproj/argocd:latest
@@ -39,6 +42,9 @@ deploy-dev:
     - when: manual
   interruptible: true
   stage: deploy
+  environment:
+    name: dev
+    url: https://inigma-dev.wvservices.com
   image: argoproj/argocd:latest
   services:
     - argoproj/argocd:latest
