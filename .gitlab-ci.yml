@@ -32,7 +32,7 @@ deploy-prod:
     - argocd app set $PROJECT_NAME -p imageCredentials.password=$ARGOCD_UPDATE_TOKEN --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
     - argocd app set $PROJECT_NAME -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
     - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+#    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
     
 deploy-dev:
   rules:
@@ -50,4 +50,4 @@ deploy-dev:
     - argocd app set $PROJECT_NAME -p imageCredentials.password=$ARGOCD_UPDATE_TOKEN --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
     - argocd app set $PROJECT_NAME -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
     - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+#    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
