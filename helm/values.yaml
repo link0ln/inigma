@@ -16,7 +16,7 @@ imageCredentials:
   username: ""
   password: ""
 
-imagePullSecrets: []
+imagePullSecrets: ["regcred"]
 nameOverride: ""
 fullnameOverride: ""
 
