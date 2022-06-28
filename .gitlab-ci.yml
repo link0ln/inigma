@@ -17,8 +17,8 @@ build-docker:
     - docker push $IMAGE_TAG
  
 deploy-argocd:
-  rules:
-    - when: manual
+#  rules:
+#    - when: manual
   interruptible: true
   stage: deploy
   image: argoproj/argocd:latest
