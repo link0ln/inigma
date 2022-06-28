@@ -25,15 +25,14 @@ deploy-prod:
   services:
     - argoproj/argocd:latest
   variables:
-    ARGOCD_VAR: "argovar"
-    ARGOCD_VAR2: "aaaaaaaaa"
-    ARGOCD_VAR3: "true"
+    PROJECT_NAME: "inigma-test"
   script:
-    - argocd app set inigma-test -p imageCredentials.registry=$CI_REGISTRY --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
-    - argocd app set inigma-test -p imageCredentials.username=$CI_REGISTRY_USER --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
-    - argocd app set inigma-test -p imageCredentials.password=$CI_REGISTRY_PASSWORD --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
-    - argocd app set inigma-test -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-    - argocd app set inigma-test -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app set $PROJECT_NAME -p imageCredentials.registry=$CI_REGISTRY --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
+    - argocd app set $PROJECT_NAME -p imageCredentials.username=$CI_REGISTRY_USER --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
+    - argocd app set $PROJECT_NAME -p imageCredentials.password=$CI_REGISTRY_PASSWORD --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
+    - argocd app set $PROJECT_NAME -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
     
 deploy-dev:
   rules:
@@ -44,12 +43,11 @@ deploy-dev:
   services:
     - argoproj/argocd:latest
   variables:
-    ARGOCD_VAR: "argovar"
-    ARGOCD_VAR2: "aaaaaaaaa"
-    ARGOCD_VAR3: "true"
+    PROJECT_NAME: "inigma-test"
   script:
-    - argocd app set inigma-test -p imageCredentials.registry=$CI_REGISTRY --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
-    - argocd app set inigma-test -p imageCredentials.username=$CI_REGISTRY_USER --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
-    - argocd app set inigma-test -p imageCredentials.password=$CI_REGISTRY_PASSWORD --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
-    - argocd app set inigma-test -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-    - argocd app set inigma-test -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app set $PROJECT_NAME -p imageCredentials.registry=$CI_REGISTRY --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
+    - argocd app set $PROJECT_NAME -p imageCredentials.username=$CI_REGISTRY_USER --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
+    - argocd app set $PROJECT_NAME -p imageCredentials.password=$CI_REGISTRY_PASSWORD --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
+    - argocd app set $PROJECT_NAME -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
