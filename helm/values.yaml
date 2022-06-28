@@ -11,6 +11,11 @@ image:
   tag: ""
 
 
+imageCredentials:
+  registry: ""
+  username: ""
+  password: ""
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
