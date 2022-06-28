@@ -10,7 +10,7 @@ build:
     - docker:20.10.7-dind
   variables:
     TAG: $CI_COMMIT_REF_NAME-$CI_PIPELINE_IID
-    IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker build -t $IMAGE_TAG .
@@ -31,7 +31,7 @@ deploy-prod:
     - argocd app set $PROJECT_NAME -p imageCredentials.username=git --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
     - argocd app set $PROJECT_NAME -p imageCredentials.password=$ARGOCD_UPDATE_TOKEN --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
     - argocd app set $PROJECT_NAME -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-    - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
 #    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
     
 deploy-dev:
@@ -49,5 +49,5 @@ deploy-dev:
     - argocd app set $PROJECT_NAME -p imageCredentials.username=git --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
     - argocd app set $PROJECT_NAME -p imageCredentials.password=$ARGOCD_UPDATE_TOKEN --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web 
     - argocd app set $PROJECT_NAME -p image.repository=$CI_REGISTRY_IMAGE --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-    - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+    - argocd app set $PROJECT_NAME -p image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
 #    - argocd app sync $PROJECT_NAME --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
