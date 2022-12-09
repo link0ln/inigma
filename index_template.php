@@ -24,6 +24,7 @@
       <div class="modal-body" id="secure-link" >
       </p></div>
       <div class="modal-footer">
+        <h7 class="modal-title" id="exampleModalLongTitle">You can send key separately from url!</h7>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
         <!-- <button type="button" class="btn btn-primary">Button</button> -->
       </div>
@@ -47,7 +48,10 @@
         <div class="input-group mb-3">
           <input type="text" placeholder="uid" class="form-control" id="uid">
         </div>
-      </div>
+        <div class="input-group mb-3">
+          <input type="text" placeholder="password" class="form-control" id="pass">
+        </div>
+      </p></div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="credentials-submit" data-dismiss="modal">Submit</button>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
