@@ -14,7 +14,7 @@ function check_key_owned($fname){
     return 0;
   }
   $json_obj = json_decode($json_text);
-  if ($json_obj->{'own_by'} == ""){
+  if ($json_obj->{'uid'} == ""){
     return 0;
   }
   return 1;
@@ -27,7 +27,7 @@ function is_owner($fname){
     return 0;
   }
   $json_obj = json_decode($json_text);
-  if ($json_obj->{'own_by'} == $uid){
+  if ($json_obj->{'uid'} == $uid){
     return 1;
   }
   return 0;
@@ -60,6 +60,5 @@ if ($_POST['view']){
     print get_data($fname);
   }
 }
-
 
 ?>

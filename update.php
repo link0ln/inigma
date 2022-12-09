@@ -20,14 +20,14 @@
       return 0;
     }
     $json_obj = json_decode($json_text);
-    if ($json_obj->{'own_by'} != ""){
+    if ($json_obj->{'uid'} != ""){
       send_failed('Secret already owned');
       return 0;
     }
     $json_obj->{'encrypted'} = "true";
     $json_obj->{'encrypted_message'} = $encrypted_message;
     $json_obj->{'message'} = "";
-    $json_obj->{'own_by'} = $uid;
+    $json_obj->{'uid'} = $uid;
     $json_obj->{'iv'} = $iv;
     $json_obj->{'salt'} = $salt;
     $json_text = json_encode($json_obj);

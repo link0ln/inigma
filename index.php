@@ -8,11 +8,14 @@ $domain = $_SERVER[HTTP_HOST]; #or maybe hardcoded doamin
 
 if (!is_dir(getcwd()."/keys")) {
   mkdir(getcwd()."/keys",0700,true);
+  chown(getcwd()."/keys", 'application');
 }
 
 if (!is_dir(getcwd()."/iv")) {
   mkdir(getcwd()."/iv",0700,true);
+  chown(getcwd()."/iv", 'application');
 }
+
 
 `find keys/ -mtime +50 -exec rm -f {} \;`;
 
@@ -59,12 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
     $ttl = 1*24*60*60+get_timestamp();
   }
 
-  $fname = getRandomString(40);
+  $fname = getRandomString(25);
   $fp = fopen("keys/$fname", "w");
   $json_data = array();
   $json_data['multiopen']         = $multiopen;
   $json_data['ttl']               = $ttl;
-  $json_data['uid']               = get_uid();
+  $json_data['uid']               = "";
   $json_data['encrypted']         = $encrypted;
   $json_data['encrypted_message'] = $encrypted_message;
   $json_data['message']           = $message;
@@ -73,7 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
 
   fwrite($fp, json_encode($json_data));
   fclose($fp);
-  print "https://$domain/?view=".$fname;
+  $json_output['url'] = "https://{$domain}/";
+  $json_output['view'] = $fname;
+  print json_encode($json_output);
   exit(0);
 }
 

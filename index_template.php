@@ -47,10 +47,7 @@
         <div class="input-group mb-3">
           <input type="text" placeholder="uid" class="form-control" id="uid">
         </div>
-        <div class="input-group mb-3">
-          <input type="text" placeholder="password" class="form-control" id="pass">
-        </div>
-      </p></div>
+      </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="credentials-submit" data-dismiss="modal">Submit</button>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -70,15 +67,6 @@
   <div class="mb-3"> 
     <button type="button" id="submit" class="btn btn-primary" data-toggle="modal" data-target="#modal-secure-link">Process</button>
   </div>
-
-  <div class="container-sm border pt-3 my-3">
-  <label for="pasword">Password:</label>
-  <div class="input-group mb-3">
-    <input type="password" class="form-control" id="password" aria-describedby="PasswordHelp" readonly onfocus="this.removeAttribute('readonly');">
-  </div>
-  <small id="PasswordHelp" class="form-text text-muted">Second factor, for best security. Leave empty to disable.</small>
-  </div>
-
   <div class="container-sm border pt-3 my-3">
   <label for="ttl">TTL(in days):</label>
   <div class="input-group mb-3">
@@ -107,31 +95,25 @@
   });
   $('#submit').on('click', function(){
     let message   = $('#message').val();
-    let password  = $('#password').val();
+    let password  = genpassword(20);
     let multiopen = true;
     let ttl       = $('#ttl').val();
 
-    if ($('#password').val() != ""){
-      salt = window.crypto.getRandomValues(new Uint8Array(16));
-      iv = window.crypto.getRandomValues(new Uint8Array(16));
-      encrypted_message = encrypt(message, salt, iv, password);
+    salt = window.crypto.getRandomValues(new Uint8Array(16));
+    iv = window.crypto.getRandomValues(new Uint8Array(16));
+    encrypted_message = encrypt(message, salt, iv, password);
 
-      iv_b64   = arrayBufferToBase64(iv);
-      salt_b64 = arrayBufferToBase64(salt); 
+    iv_b64   = arrayBufferToBase64(iv);
+    salt_b64 = arrayBufferToBase64(salt); 
 
-      encrypted_message.then( function(result){
-        encrypted_message_b64 = arrayBufferToBase64(result);
-        $.post('/', { encrypted_message: encrypted_message_b64, encrypted: "true", iv: iv_b64, salt: salt_b64, ttl: ttl, multiopen: multiopen}).done(function(data) {
-          $('#secure-link').html(data);
-          navigator.clipboard.writeText(data);
-        });
+    encrypted_message.then( function(result){
+      encrypted_message_b64 = arrayBufferToBase64(result);
+      $.post('/', { encrypted_message: encrypted_message_b64, encrypted: "true", iv: iv_b64, salt: salt_b64, ttl: ttl, multiopen: multiopen}).done(function(data) {
+        json_data = JSON.parse(data);
+        $('#secure-link').html(''.concat(json_data['url'], '?view=', json_data['view'], '&key=', password));
+        navigator.clipboard.writeText($('#secure-link').text());
       });
-    } else {
-      $.post('/', { message: message, encrypted: "false", ttl: ttl, multiopen: multiopen}).done(function(data) {
-          $('#secure-link').html(data);
-          navigator.clipboard.writeText(data);
-        });
-    }
+    });
   });
 </script>
 </body>

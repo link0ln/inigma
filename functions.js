@@ -98,6 +98,10 @@ function makeid(length) {
    return result;
 }
 
+function genpassword(length) {
+  return makeid(length);
+}
+
 function get_uid() {
   var uid = localStorage.getItem('uid');
   if ( uid == null){
