@@ -64,7 +64,6 @@
         encrypted_message_b64 = arrayBufferToBase64(result);
         $.post('/update.php', { view: view, uid: uid, encrypted_message: encrypted_message_b64, iv: iv_b64, salt: salt_b64 }).done(function(data) {
           console.log("Update sent...");
-          console.log(data);
         });
       });
   }
@@ -78,8 +77,6 @@ function process_message(json_data, password, assign_key){
   encrypted_message = base64ToArrayBuffer(encrypted_message_b64);
   iv                = base64ToArrayBuffer(iv_b64);
   salt              = base64ToArrayBuffer(salt_b64);
-
-  console.log(json_data, password, assign_key);
   
   decrypted = decrypt(encrypted_message, salt, iv, password);
   decrypted.then( function(decrypted_message_array_buffer){
