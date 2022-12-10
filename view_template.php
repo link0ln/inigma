@@ -12,20 +12,16 @@
 <body>
 <div class="container-custom">
   <div class="container pt-3 my-3 border text-center">
-    <div id='info'>
-      <p><button type="button" id='get_secret' class="btn btn-primary">Get secret</button></p>
-    </div>
    
     <div class="alert alert-danger" role="alert" id="warn">
       Wrong key!
     </div> 
+
     <div id='secure' style='display: none'>
-<!--
       <label for="pasword">Password:</label>
       <div class="input-group mb-3">
         <input type="password" class="form-control" id="password">
       </div>
--->
       <div class="mb-3">
         <button type="button" id="decrypt" class="btn btn-primary">Decrypt</button>
       </div>
@@ -34,9 +30,11 @@
     <p><div id='warn' style="color: red"></div></p>
   </div>
 </div>
-<script language=javascript>
-  view = $.urlParam('view');
 
+<script language=javascript>
+  const urlParams = new URLSearchParams(window.location.search);
+  view = $.urlParam('view');
+  
   $('#warn').hide();
 
   function show_self_secret(encrypted_message_b64, iv_b64, salt_b64){
@@ -71,65 +69,58 @@
       });
   }
 
-
-  $('#get_secret').on('click',function(){
-    jQuery.post("/view.php", { view: view, uid: get_uid() })
-    .done(function(data) {
-      json_data = jQuery.parseJSON(data);
-
-      if ( json_data['encrypted'] == "true" ) {
-        const urlParams = new URLSearchParams(window.location.search);
+function process_message(json_data, password, assign_key){
+  encrypted_message_b64 = json_data['encrypted_message'];
+  iv_b64                = json_data['iv'];
+  salt_b64              = json_data['salt'];
+  secret_uid            = json_data['uid'];
   
-        encrypted_message_b64 = json_data['encrypted_message'];
-        iv_b64                = json_data['iv'];
-        salt_b64              = json_data['salt'];
-        secret_uid            = json_data['uid'];
+  encrypted_message = base64ToArrayBuffer(encrypted_message_b64);
+  iv                = base64ToArrayBuffer(iv_b64);
+  salt              = base64ToArrayBuffer(salt_b64);
+
+  console.log(json_data, password, assign_key);
   
-        if ( secret_uid == get_uid() ) {
-          password = get_pass();
-
-          encrypted_message = base64ToArrayBuffer(encrypted_message_b64);
-          iv                = base64ToArrayBuffer(iv_b64);
-          salt              = base64ToArrayBuffer(salt_b64);
-    
-          decrypted = decrypt(encrypted_message, salt, iv, password);
-          decrypted.then( function(decrypted_message_array_buffer){
-            decrypted_message = new TextDecoder().decode(decrypted_message_array_buffer);
-            $("#secret").text(decrypted_message);
-          }, function(failed){
-            $("#warn").show();
-          });
-
-        }
-        
-        if ( secret_uid == "" ) {
-          password = urlParams.get('key');
-
-          encrypted_message = base64ToArrayBuffer(encrypted_message_b64);
-          iv                = base64ToArrayBuffer(iv_b64);
-          salt              = base64ToArrayBuffer(salt_b64);
-    
-          decrypted = decrypt(encrypted_message, salt, iv, password);
-          decrypted.then( function(decrypted_message_array_buffer){
-            decrypted_message = new TextDecoder().decode(decrypted_message_array_buffer);
-            $("#secret").text(decrypted_message);
-            send_update(decrypted_message);
-          }, function(failed){
-            $("#warn").show();
-          });
-        }
-
-      }
-
-
-      if ( json_data['redirect_root'] == 'true' ) {
-        $("#secret").text(json_data['message']);
-        setTimeout(function (){
-          window.location.replace("/");
-        }, 5000);
-      }
-    });
+  decrypted = decrypt(encrypted_message, salt, iv, password);
+  decrypted.then( function(decrypted_message_array_buffer){
+    decrypted_message = new TextDecoder().decode(decrypted_message_array_buffer);
+    $("#secret").text(decrypted_message);
+    if ( assign_key == true ){
+      send_update(decrypted_message);
+    }
+    $('#secure').hide();
+    $('#warn').hide();
+    return true;
+  }, function(failed){
+    $("#warn").show();
+    return false;
   });
+  return false;
+}
+
+  jQuery.post("/view.php", { view: view, uid: get_uid() })
+      .done(function(data) {
+        json_data = JSON.parse(data);
+        if ( json_data['redirect_root'] == 'true' ) {
+          $("#secret").text(json_data['message']);
+          setTimeout(function (){
+            window.location.replace("/");
+          }, 5000);
+        }else{
+          if ( json_data['uid'] == get_uid() ){
+            process_message(json_data, get_pass(), false);
+          }else if ( urlParams.get('key') != null ){
+            process_message(json_data, urlParams.get('key'), true);
+          }else{
+            $('#secure').show();
+          }
+        }
+      });
+
+  $('#decrypt').on('click',function(){
+    process_message(json_data, $("#password").val(), true);
+  });
+
 </script>
 </body>
 </html>

@@ -16,15 +16,36 @@
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Secure link (already copied to clipboard)</h5>
+        <h5 class="modal-title" id="exampleModalLongTitle">Secure link(full link can be copied separately from key)</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="false">×</span>
         </button>
       </div>
-      <div class="modal-body" id="secure-link" >
-      </p></div>
+      <div class="modal-body">
+        <div class="container">
+          <h6>First link already copied to clipboard</h6>
+          <table class="table table-hover">
+            <tbody>
+              <tr class="table-light">
+                <td>Full link:</td>
+                <td id="secure-link"></td>
+                <td><button id="copy-secure-link" type="button" class="btn btn-info btn-sm" style="float: right;">Copy</button></td>
+           	</tr>
+           	<tr class="table-light">
+                <td>Only link:</td>
+                <td id="secure-link-nokey">Column content</td>
+                <td><button id="copy-secure-link-nokey" type="button" class="btn btn-info btn-sm" style="float: right;">Copy</button></td>
+           	</tr>
+           	<tr class="table-light">
+                <td>Only key:</td>
+                <td id="secure-link-keyonly">Column content</td>
+                <td><button id="copy-secure-link-keyonly" type="button" class="btn btn-info btn-sm" style="float: right;">Copy</button></td>
+           	</tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div class="modal-footer">
-        <h7 class="modal-title" id="exampleModalLongTitle">You can send key separately from url!</h7>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
         <!-- <button type="button" class="btn btn-primary">Button</button> -->
       </div>
@@ -51,7 +72,7 @@
         <div class="input-group mb-3">
           <input type="text" placeholder="password" class="form-control" id="pass">
         </div>
-      </p></div>
+      </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="credentials-submit" data-dismiss="modal">Submit</button>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -97,6 +118,15 @@
     $('#uid').val(get_uid());
     $('#pass').val(get_pass());
   });
+  $('#copy-secure-link').on('click', function(){
+    navigator.clipboard.writeText($('#secure-link').text());
+  });
+  $('#copy-secure-link-nokey').on('click', function(){
+    navigator.clipboard.writeText($('#secure-link-nokey').text());
+  });
+  $('#copy-secure-link-keyonly').on('click', function(){
+    navigator.clipboard.writeText($('#secure-link-keyonly').text());
+  });
   $('#submit').on('click', function(){
     let message   = $('#message').val();
     let password  = genpassword(20);
@@ -115,6 +145,8 @@
       $.post('/', { encrypted_message: encrypted_message_b64, encrypted: "true", iv: iv_b64, salt: salt_b64, ttl: ttl, multiopen: multiopen}).done(function(data) {
         json_data = JSON.parse(data);
         $('#secure-link').html(''.concat(json_data['url'], '?view=', json_data['view'], '&key=', password));
+        $('#secure-link-nokey').html(''.concat(json_data['url'], '?view=', json_data['view']));
+        $('#secure-link-keyonly').html(password);
         navigator.clipboard.writeText($('#secure-link').text());
       });
     });

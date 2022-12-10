@@ -7,57 +7,28 @@ function get_timestamp(){
   return $date->getTimestamp();
 }
 
-function check_key_owned($fname){
-  $uid = $_POST['uid'];
-  $json_text = file_get_contents("keys/$fname");
-  if ($json_text == false){
-    return 0;
-  }
-  $json_obj = json_decode($json_text);
-  if ($json_obj->{'uid'} == ""){
-    return 0;
-  }
-  return 1;
-}
-
-function is_owner($fname){
-  $uid = $_POST['uid'];
-  $json_text = file_get_contents("keys/$fname");
-  if ($json_text == false){
-    return 0;
-  }
-  $json_obj = json_decode($json_text);
-  if ($json_obj->{'uid'} == $uid){
-    return 1;
-  }
-  return 0;
-}
-
-function get_data($fname){
+function get_data($fname, $net_uid){
   global $default;
-  $uid = $_POST['uid'];
   $json_text = file_get_contents("keys/$fname");
   if ($json_text == false){
     return $default;
   }
-  if ( (check_key_owned($fname) != 0) and (is_owner($fname) != 1)){
-    return $default;
-  }
-  #unlink("keys/$fname");
   $json_obj = json_decode($json_text);
-  if ($json_obj->{'ttl'} < get_timestamp()) {
-    return $default;
-  }else{
+  if ( ($json_obj->{'uid'} == $net_uid) and ($json_obj->{'ttl'} > get_timestamp()) ){
     return $json_text;
   }
+  if ( ($json_obj->{'uid'} == "") and ($json_obj->{'ttl'} > get_timestamp()) ){
+    return $json_text;
+  }
+  return $default;
 }
-
 
 if ($_POST['view']){
   $fname = $_POST['view'];
+  $net_uid = $_POST['uid'];
   $result = preg_match("/^[a-zA-Z0-9]+$/",$fname);
   if ($result){
-    print get_data($fname);
+    print get_data($fname, $net_uid);
   }
 }
 
