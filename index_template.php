@@ -83,29 +83,43 @@
 
 
 <div class="container-custom">
-<div class="container pt-3 my-3 border text-center container-custom">
-  <div class="mb-3"> 
-    <label for="message">Secure text</label>
-    <textarea class="form-control" id="message" cols=140 rows=10 ></textarea>
-  </div>
+  <div class="container pt-3 my-3 border text-center container-custom">
+    <div class="mb-3"> 
+      <label for="message">Secure text</label>
+      <textarea class="form-control" id="message" cols=140 rows=10 ></textarea>
+    </div>
+  
+    <div class="mb-3"> 
+      <button type="button" id="submit" class="btn btn-primary" data-toggle="modal" data-target="#modal-secure-link">Process</button>
+    </div>
+    <div class="container-sm border pt-3 my-3">
+      <label for="ttl">TTL(in days):</label>
+      <div class="input-group mb-3">
+        <input type="text" class="form-control" id="ttl" value="10">
+      </div>
+      <small id="TtlHelp" class="form-text text-muted">Time to link live in days. Zero (0) to store permanently.</small>
+    </div>
+  
+    <div class="container-sm border pt-3 my-3">
+      <button type="button" id="show-credentials" class="btn btn-primary my-3" data-toggle="modal" data-target="#modal-show-credentials">Show your credentials</button> 
+    </div>
+  
+    <div class="container-sm border pt-3 my-3 text-left">
+      <ul class="list-unstyled">
+        <li><h6>Changes from 10.12.2022, and other features:</h6></li>
+        <li class="font-weight-bold">All data going throug server is now encrypted.</li>
+        <li>All data will be encrypted with password, before sending to server.</li>
+        <li>No need to set password, it will be generated automaticly.</li>
+        <li>Password now is a part of link, so you can share it.</li>
+        <li>Or you can send link without password, and share password separately.</li>
+        <li>Once link is opened, it will be unavailable for opening from other customers.</li>
+        <li>Once link is opened, it will reencrypted with customer password(always stored in local storage), and can be opened again from same customer many times.</li>
+        <li>Once customer enter service, customer's password will be generated in background and stored in local storage.</li>
+        <li>To use service on different computers/browsers, please sync uid and password by button "Show your credentials"</li>
+      </ul>
+    </div>
 
-  <div class="mb-3"> 
-    <button type="button" id="submit" class="btn btn-primary" data-toggle="modal" data-target="#modal-secure-link">Process</button>
   </div>
-  <div class="container-sm border pt-3 my-3">
-  <label for="ttl">TTL(in days):</label>
-  <div class="input-group mb-3">
-    <input type="text" class="form-control" id="ttl" value="10">
-  </div>
-  <small id="TtlHelp" class="form-text text-muted">Time to link live in days. Zero (0) to store permanently.</small>
-  </div>
-
-  <div class="container-sm border pt-3 my-3">
-    <button type="button" id="show-credentials" class="btn btn-primary my-3" data-toggle="modal" data-target="#modal-show-credentials">Show your credentials</button> 
-  </div>
-
-</div>
-
 </div>
 <script language=javascript>
   $('#uid').val(get_uid());
