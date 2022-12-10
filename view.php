@@ -14,6 +14,10 @@ function get_data($fname, $net_uid){
     return $default;
   }
   $json_obj = json_decode($json_text);
+  
+  if ($json_obj->{'ttl'} < get_timestamp()) {
+    return $default;
+  }
   if ( ($json_obj->{'uid'} == $net_uid) and ($json_obj->{'ttl'} > get_timestamp()) ){
     return $json_text;
   }

@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
       $ttl = 9999999999;
     }
   }else{
-    $ttl = 1*24*60*60+get_timestamp();
+    $ttl = 30*24*60*60+get_timestamp();
   }
 
   $fname = getRandomString(25);

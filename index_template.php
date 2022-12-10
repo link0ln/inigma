@@ -64,7 +64,7 @@
       </div>
       <div class="modal-body" id="form-credentials" >
         <div class="input-group mb-3">
-          This is your atomaticly generated credentials, it can be edited, and submitted, if you want to open multilink credentials on different computers.
+          This is your automatically generated credentials, it can be edited, and submitted, if you want to open multilink credentials on different computers.
         </div>
         <div class="input-group mb-3">
           <input type="text" placeholder="uid" class="form-control" id="uid">
@@ -95,7 +95,7 @@
     <div class="container-sm border pt-3 my-3">
       <label for="ttl">TTL(in days):</label>
       <div class="input-group mb-3">
-        <input type="text" class="form-control" id="ttl" value="10">
+        <input type="text" class="form-control" id="ttl" value="0">
       </div>
       <small id="TtlHelp" class="form-text text-muted">Time to link live in days. Zero (0) to store permanently.</small>
     </div>
