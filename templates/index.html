@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inigma - Secure Message Sharing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <div class="container mx-auto px-4 py-8" x-data="app()">
+        <!-- Header -->
+        <header class="text-center mb-12 fade-in">
+            <h1 class="text-5xl font-bold mb-4">
+                <i class="fas fa-lock mr-2"></i>Inigma
+            </h1>
+            <p class="text-xl opacity-90">Share sensitive information securely with end-to-end encryption</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="max-w-4xl mx-auto">
+            <!-- Message Input -->
+            <div class="glass-morphism rounded-2xl p-8 mb-8 fade-in">
+                <div class="mb-6">
+                    <label for="message" class="block text-lg font-semibold mb-3">
+                        <i class="fas fa-envelope mr-2"></i>Your Secure Message
+                    </label>
+                    <textarea 
+                        id="message"
+                        x-model="message"
+                        class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all"
+                        rows="8"
+                        placeholder="Enter your confidential message here..."
+                    ></textarea>
+                </div>
+
+                <!-- TTL Settings -->
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label for="ttl" class="block text-sm font-medium mb-2">
+                            <i class="fas fa-clock mr-2"></i>Message Lifetime (days)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="ttl"
+                            x-model="ttl"
+                            min="0"
+                            class="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40"
+                            placeholder="0 for permanent"
+                        >
+                        <p class="text-xs mt-1 opacity-70">0 = permanent storage</p>
+                    </div>
+                    <div class="flex items-end">
+                        <button 
+                            @click="processMessage()"
+                            :disabled="!message || processing"
+                            class="w-full px-6 py-3 bg-white/20 hover:bg-white/30 disabled:bg-white/10 rounded-lg font-semibold transition-all transform hover:scale-105 disabled:scale-100"
+                        >
+                            <span x-show="!processing">
+                                <i class="fas fa-shield-alt mr-2"></i>Create Secure Link
+                            </span>
+                            <span x-show="processing">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Processing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Success Modal -->
+            <div 
+                x-show="showModal" 
+                x-transition
+                class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                @click.self="showModal = false"
+            >
+                <div class="glass-morphism rounded-2xl p-8 max-w-2xl w-full mx-4 fade-in">
+                    <h3 class="text-2xl font-bold mb-6">
+                        <i class="fas fa-check-circle text-green-400 mr-2"></i>Secure Link Created!
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <!-- Full Link -->
+                        <div class="bg-white/10 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-medium">Full Link (with key):</span>
+                                <button 
+                                    @click="copyToClipboard(links.full)"
+                                    class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                                >
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </div>
+                            <p class="text-sm break-all font-mono opacity-80" x-text="links.full"></p>
+                        </div>
+
+                        <!-- Link without key -->
+                        <div class="bg-white/10 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-medium">Link Only:</span>
+                                <button 
+                                    @click="copyToClipboard(links.noKey)"
+                                    class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                                >
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </div>
+                            <p class="text-sm break-all font-mono opacity-80" x-text="links.noKey"></p>
+                        </div>
+
+                        <!-- Key only -->
+                        <div class="bg-white/10 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-medium">Decryption Key:</span>
+                                <button 
+                                    @click="copyToClipboard(links.keyOnly)"
+                                    class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                                >
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </div>
+                            <p class="text-sm break-all font-mono opacity-80" x-text="links.keyOnly"></p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button 
+                            @click="showModal = false; message = ''"
+                            class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Credentials Section -->
+            <div class="glass-morphism rounded-2xl p-8 mb-8 fade-in">
+                <h3 class="text-xl font-bold mb-4">
+                    <i class="fas fa-key mr-2"></i>Your Credentials
+                </h3>
+                <p class="mb-4 opacity-80">These credentials are stored locally and used for re-encryption when you access your messages.</p>
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">User ID</label>
+                        <div class="flex">
+                            <input 
+                                type="text" 
+                                x-model="credentials.uid"
+                                class="flex-1 px-4 py-2 rounded-l-lg bg-white/10 border border-white/20 text-white font-mono text-sm"
+                                readonly
+                            >
+                            <button 
+                                @click="copyToClipboard(credentials.uid)"
+                                class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-r-lg transition-all"
+                            >
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Password</label>
+                        <div class="flex">
+                            <input 
+                                type="password" 
+                                x-model="credentials.pass"
+                                class="flex-1 px-4 py-2 rounded-l-lg bg-white/10 border border-white/20 text-white font-mono text-sm"
+                                readonly
+                            >
+                            <button 
+                                @click="copyToClipboard(credentials.pass)"
+                                class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-r-lg transition-all"
+                            >
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex gap-4">
+                    <button 
+                        @click="showCredentials = !showCredentials"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
+                    >
+                        <i class="fas fa-eye mr-2"></i>Toggle Visibility
+                    </button>
+                    <button 
+                        @click="regenerateCredentials()"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
+                    >
+                        <i class="fas fa-sync mr-2"></i>Regenerate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="glass-morphism rounded-xl p-6 text-center fade-in">
+                    <i class="fas fa-lock text-4xl mb-4 text-yellow-300"></i>
+                    <h4 class="font-bold mb-2">End-to-End Encryption</h4>
+                    <p class="text-sm opacity-80">Messages are encrypted in your browser before being sent to the server</p>
+                </div>
+                <div class="glass-morphism rounded-xl p-6 text-center fade-in">
+                    <i class="fas fa-user-secret text-4xl mb-4 text-green-300"></i>
+                    <h4 class="font-bold mb-2">One-Time Access</h4>
+                    <p class="text-sm opacity-80">Links become bound to the first user who opens them</p>
+                </div>
+                <div class="glass-morphism rounded-xl p-6 text-center fade-in">
+                    <i class="fas fa-clock text-4xl mb-4 text-blue-300"></i>
+                    <h4 class="font-bold mb-2">Auto-Expiration</h4>
+                    <p class="text-sm opacity-80">Set custom expiration times or keep messages permanently</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div 
+            x-show="showToast" 
+            x-transition
+            class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg"
+        >
+            <i class="fas fa-check mr-2"></i>Copied to clipboard!
+        </div>
+    </div>
+
+    <script>
+        // Crypto functions
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binary = window.atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        async function getKeyMaterial(password) {
+            const enc = new TextEncoder();
+            return window.crypto.subtle.importKey(
+                "raw",
+                enc.encode(password),
+                "PBKDF2",
+                false,
+                ["deriveBits", "deriveKey"]
+            );
+        }
+
+        async function encrypt(plaintext, salt, iv, password) {
+            const enc = new TextEncoder();
+            const keyMaterial = await getKeyMaterial(password);
+            const key = await window.crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: salt,
+                    iterations: 100000,
+                    hash: "SHA-256"
+                },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                true,
+                ["encrypt", "decrypt"]
+            );
+            return window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv },
+                key,
+                enc.encode(plaintext)
+            );
+        }
+
+        function generatePassword(length) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Alpine.js app
+        function app() {
+            return {
+                message: '',
+                ttl: 30,
+                processing: false,
+                showModal: false,
+                showToast: false,
+                showCredentials: false,
+                links: {
+                    full: '',
+                    noKey: '',
+                    keyOnly: ''
+                },
+                credentials: {
+                    uid: localStorage.getItem('uid') || generatePassword(12),
+                    pass: localStorage.getItem('pass') || generatePassword(24)
+                },
+                
+                init() {
+                    // Save credentials if new
+                    if (!localStorage.getItem('uid')) {
+                        localStorage.setItem('uid', this.credentials.uid);
+                    }
+                    if (!localStorage.getItem('pass')) {
+                        localStorage.setItem('pass', this.credentials.pass);
+                    }
+                },
+                
+                async processMessage() {
+                    if (!this.message || this.processing) return;
+                    
+                    this.processing = true;
+                    const password = generatePassword(20);
+                    
+                    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                    const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                    
+                    try {
+                        const encrypted = await encrypt(this.message, salt, iv, password);
+                        
+                        const response = await fetch('/api/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                encrypted_message: arrayBufferToBase64(encrypted),
+                                encrypted: "true",
+                                iv: arrayBufferToBase64(iv),
+                                salt: arrayBufferToBase64(salt),
+                                ttl: parseInt(this.ttl) || 30,
+                                multiopen: true
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        this.links.full = `${data.url}view?view=${data.view}&key=${password}`;
+                        this.links.noKey = `${data.url}view?view=${data.view}`;
+                        this.links.keyOnly = password;
+                        
+                        // Auto-copy full link
+                        await navigator.clipboard.writeText(this.links.full);
+                        this.showToast = true;
+                        setTimeout(() => this.showToast = false, 3000);
+                        
+                        this.showModal = true;
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('Failed to create secure link');
+                    } finally {
+                        this.processing = false;
+                    }
+                },
+                
+                async copyToClipboard(text) {
+                    await navigator.clipboard.writeText(text);
+                    this.showToast = true;
+                    setTimeout(() => this.showToast = false, 3000);
+                },
+                
+                regenerateCredentials() {
+                    if (confirm('This will regenerate your credentials. You will lose access to any messages encrypted with current credentials. Continue?')) {
+                        this.credentials.uid = generatePassword(12);
+                        this.credentials.pass = generatePassword(24);
+                        localStorage.setItem('uid', this.credentials.uid);
+                        localStorage.setItem('pass', this.credentials.pass);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
