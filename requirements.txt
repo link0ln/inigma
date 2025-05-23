@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy
+sqlmodel
+alembic
+jinja2
+python-multipart
+pydantic-settings
+APScheduler

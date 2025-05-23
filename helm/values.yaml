@@ -1,65 +1,69 @@
-# Default values for inigma.
+# Default values for inigma-fastapi.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: nginx
-  pullPolicy: Always
+  repository: inigma-fastapi # Placeholder - replace with your actual image repo
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "latest"
 
-
-imageCredentials:
-  registry: ""
-  username: ""
-  password: ""
-
-imagePullSecrets:
-  - name: regcred
+# Define imagePullSecrets if using a private registry
+# imagePullSecrets:
+#   - name: my-registry-secret
+imagePullSecrets: []
 
 nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  name: "" # If not set, a name is generated using the fullname template
 
 podAnnotations: {}
+# Example:
+# podAnnotations:
+#   linkerd.io/inject: enabled
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  runAsNonRoot: true
+  # fsGroup: 1001 # Example, matches appuser's group if needed for volumes
+  runAsUser: 1001 # Example, should ideally match appuser's UID if known, or a fixed non-root UID
 
-securityContext: {}
+securityContext:
   # capabilities:
   #   drop:
   #   - ALL
   # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  runAsNonRoot: true # Ensures container runs as non-root
+  # runAsUser: 1001 # UID of appuser (if known and consistent)
 
 service:
   type: ClusterIP
-  port: 80
+  port: 80 # Port exposed by the Kubernetes Service
+  targetPort: 8000 # Port the container's application listens on (matches containerPort)
+
+# containerPort is the port exposed by the container where Uvicorn runs
+containerPort: 8000
 
 ingress:
   enabled: false
+  className: "" # For NGINX Ingress, set to "nginx" or your ingress controller's class
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chart-example.local
-      paths: []
+    - host: inigma-fastapi.local # Replace with your desired hostname
+      paths:
+        - path: /
+          pathType: ImplementationSpecific # Or Prefix
   tls: []
-  #  - secretName: chart-example-tls
+  #  - secretName: inigma-fastapi-tls
   #    hosts:
-  #      - chart-example.local
+  #      - inigma-fastapi.local
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -67,18 +71,30 @@ resources:
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
-    cpu: 500m
-    memory: 256Mi
+    cpu: 200m
+    memory: 128Mi
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 64Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+
+# Optional: Configure environment variables for the application
+# Example:
+# env:
+#   - name: DATABASE_URL
+#     value: "sqlite:///./inigma_next.db" # This would be for a container-local DB
+#   - name: ANOTHER_CONFIG
+#     valueFrom:
+#       secretKeyRef:
+#         name: mysecret
+#         key: another_config_key
+env: []
 
 nodeSelector: {}
 

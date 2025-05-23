@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Secret - Inigma Next</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Store secret_id from Jinja template context -->
+    <script>
+        const SECRET_ID = "{{ secret_id }}";
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>View Secret</h1>
+        
+        <div id="secretDataContainer" style="display: none;">
+            <p>Encrypted data has been fetched. Enter password to decrypt.</p>
+        </div>
+
+        <label for="decryptPassword">Password:</label>
+        <input type="password" id="decryptPassword">
+        
+        <button id="decryptSecretBtn">Decrypt Secret</button>
+        
+        <div id="statusArea" class="output-area">
+            <!-- Status/errors will be displayed here -->
+        </div>
+        <div id="decryptedMessageArea" class="output-area">
+            <!-- Decrypted message will be displayed here -->
+        </div>
+    </div>
+    
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

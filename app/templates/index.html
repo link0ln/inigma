@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Secret - Inigma Next</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Create a New Secret</h1>
+        
+        <label for="secretMessage">Secret Message:</label>
+        <textarea id="secretMessage" rows="5"></textarea>
+        
+        <label for="secretPassword">Password (for encryption):</label>
+        <input type="password" id="secretPassword">
+        
+        <div>
+            <input type="checkbox" id="multiOpen">
+            <label for="multiOpen">Multi-open? (Allows multiple views)</label>
+        </div>
+        
+        <div id="maxViewsContainer">
+            <label for="maxViews">Max Views (if multi-open):</label>
+            <input type="number" id="maxViews" value="1" min="1">
+        </div>
+        
+        <label for="ttlDays">TTL (days, 0 for indefinite):</label>
+        <input type="number" id="ttlDays" value="7" min="0">
+        
+        <button id="createSecretBtn">Create Secret Link</button>
+        
+        <div id="secretLinkArea" class="output-area">
+            <!-- Secret link will be displayed here -->
+        </div>
+        <div id="errorArea" class="output-area error">
+            <!-- Errors will be displayed here -->
+        </div>
+    </div>
+    
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
