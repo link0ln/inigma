@@ -49,6 +49,7 @@ class CreateMessageRequest(BaseModel):
     salt: str
     ttl: Optional[int] = 30
     multiopen: bool = True
+    custom_name: Optional[str] = ""
 
 class UpdateOwnerRequest(BaseModel):
     view: str
@@ -61,6 +62,16 @@ class ViewMessageRequest(BaseModel):
     view: str
     uid: str
 
+class ListSecretsRequest(BaseModel):
+    uid: str
+    page: int = 1
+    per_page: int = 10
+
+class UpdateCustomNameRequest(BaseModel):
+    view: str
+    uid: str
+    custom_name: str
+
 class MessageData(BaseModel):
     multiopen: bool
     ttl: int
@@ -70,6 +81,7 @@ class MessageData(BaseModel):
     message: str = ""
     iv: str
     salt: str
+    custom_name: str = ""
 
 def generate_random_string(length: int = 25) -> str:
     """Generate cryptographically secure random string"""
@@ -142,7 +154,8 @@ async def create_message(request: CreateMessageRequest):
         encrypted_message=request.encrypted_message,
         message="",
         iv=request.iv,
-        salt=request.salt
+        salt=request.salt,
+        custom_name=request.custom_name or ""
     )
     
     # Save to file
@@ -256,6 +269,105 @@ async def update_owner(request: UpdateOwnerRequest):
     
     logger.info(f"Successfully updated owner for message {request.view}")
     return {"status": "success", "message": "secret owned"}
+
+@app.post("/api/list-secrets")
+async def list_user_secrets(request: ListSecretsRequest):
+    """List user's secrets with pagination"""
+    logger.info(f"Listing secrets for user {request.uid}")
+    
+    user_secrets = []
+    current_time = get_timestamp()
+    
+    # Scan all files for user's secrets
+    for file_path in KEYS_DIR.glob("*"):
+        if file_path.is_file():
+            try:
+                with open(file_path, "r") as f:
+                    data = json.load(f)
+                
+                # Check if this secret belongs to the user
+                if data.get("uid") == request.uid:
+                    # Calculate days remaining
+                    if data["ttl"] == 9999999999:
+                        days_remaining = -1  # Permanent
+                    else:
+                        days_remaining = max(0, (data["ttl"] - current_time) // (24 * 60 * 60))
+                    
+                    # Skip expired secrets
+                    if data["ttl"] < current_time and data["ttl"] != 9999999999:
+                        continue
+                    
+                    user_secrets.append({
+                        "id": file_path.name,
+                        "custom_name": data.get("custom_name", ""),
+                        "days_remaining": days_remaining,
+                        "created_time": file_path.stat().st_mtime
+                    })
+            except (json.JSONDecodeError, KeyError):
+                continue
+    
+    # Sort by creation time (newest first)
+    user_secrets.sort(key=lambda x: x["created_time"], reverse=True)
+    
+    # Pagination
+    total = len(user_secrets)
+    per_page = min(request.per_page, 50)  # Max 50 per page
+    start_idx = (request.page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    paginated_secrets = user_secrets[start_idx:end_idx]
+    
+    # Remove created_time from response
+    for secret in paginated_secrets:
+        del secret["created_time"]
+    
+    return {
+        "secrets": paginated_secrets,
+        "page": request.page,
+        "per_page": per_page,
+        "total": total,
+        "has_more": end_idx < total
+    }
+
+@app.post("/api/update-custom-name")
+async def update_custom_name(request: UpdateCustomNameRequest):
+    """Update custom name for a secret"""
+    logger.info(f"Updating custom name for secret {request.view}")
+    
+    # Validate filename
+    if not request.view.replace("-", "").replace("_", "").isalnum():
+        logger.warning(f"Invalid view parameter: {request.view}")
+        return {"status": "failed", "message": "Invalid view parameter"}
+    
+    file_path = KEYS_DIR / request.view
+    
+    # Check if file exists
+    if not file_path.exists():
+        logger.warning(f"Secret not found: {request.view}")
+        return {"status": "failed", "message": "Secret not found"}
+    
+    # Read current data
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        logger.error(f"Invalid JSON in file {request.view}")
+        return {"status": "failed", "message": "Invalid secret data"}
+    
+    # Check if user owns this secret
+    if data.get("uid") != request.uid:
+        logger.warning(f"Access denied for secret {request.view}")
+        return {"status": "failed", "message": "Access denied"}
+    
+    # Update custom name
+    data["custom_name"] = request.custom_name
+    
+    # Save updated data
+    with open(file_path, "w") as f:
+        json.dump(data, f)
+    
+    logger.info(f"Successfully updated custom name for secret {request.view}")
+    return {"status": "success", "message": "Custom name updated"}
 
 @app.get("/health")
 async def health_check():

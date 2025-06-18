@@ -52,6 +52,19 @@
                     ></textarea>
                 </div>
 
+                <div class="mb-6">
+                    <label for="customName" class="block text-lg font-semibold mb-3">
+                        <i class="fas fa-tag mr-2"></i>Custom Name (Optional)
+                    </label>
+                    <input 
+                        type="text"
+                        id="customName"
+                        x-model="customName"
+                        class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all"
+                        placeholder="Give your secret a memorable name..."
+                    >
+                </div>
+
                 <!-- TTL Settings -->
                 <div class="grid md:grid-cols-2 gap-6 mb-6">
                     <div>
@@ -143,7 +156,7 @@
 
                     <div class="mt-6 flex justify-end">
                         <button 
-                            @click="showModal = false; message = ''"
+                            @click="showModal = false; message = ''; customName = ''; loadSecrets()"
                             class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
                         >
                             Close
@@ -208,6 +221,99 @@
                         class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
                     >
                         <i class="fas fa-sync mr-2"></i>Regenerate
+                    </button>
+                </div>
+            </div>
+
+            <!-- My Secrets Section -->
+            <div class="glass-morphism rounded-2xl p-8 mb-8 fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">
+                        <i class="fas fa-list mr-2"></i>My Secrets
+                    </h3>
+                    <button 
+                        @click="loadSecrets()"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
+                        :disabled="loadingSecrets"
+                    >
+                        <i class="fas fa-sync mr-2" :class="{ 'fa-spin': loadingSecrets }"></i>Refresh
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="loadingSecrets" class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p>Loading your secrets...</p>
+                </div>
+
+                <!-- Secrets List -->
+                <div x-show="!loadingSecrets && secrets.length > 0" class="space-y-3">
+                    <template x-for="secret in secrets" :key="secret.id">
+                        <div class="bg-white/10 rounded-lg p-4 flex justify-between items-center">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <input 
+                                        :value="secret.custom_name || 'Untitled Secret'"
+                                        @blur="updateSecretName(secret, $event.target.value)"
+                                        @keyup.enter="$event.target.blur()"
+                                        class="text-lg font-semibold bg-transparent border-b-2 border-transparent hover:border-white/30 focus:border-white/50 focus:outline-none px-2 py-1 rounded transition-all"
+                                        placeholder="Enter custom name..."
+                                    >
+                                    <span x-show="secret.updating" class="text-xs opacity-60">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </span>
+                                </div>
+                                <div class="text-sm opacity-70">
+                                    ID: <span class="font-mono" x-text="secret.id"></span>
+                                </div>
+                                <div class="text-sm opacity-70">
+                                    <span x-text="secret.days_remaining === -1 ? 'Permanent' : secret.days_remaining + ' days remaining'"></span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button 
+                                    @click="openSecret(secret.id)"
+                                    class="px-3 py-2 bg-blue-500/30 hover:bg-blue-500/50 rounded-lg transition-all text-sm"
+                                    title="Open Secret"
+                                >
+                                    <i class="fas fa-external-link-alt"></i>
+                                </button>
+                                <button 
+                                    @click="copySecretLink(secret.id)"
+                                    class="px-3 py-2 bg-green-500/30 hover:bg-green-500/50 rounded-lg transition-all text-sm"
+                                    title="Copy Link"
+                                >
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="!loadingSecrets && secrets.length === 0" class="text-center py-8 opacity-70">
+                    <i class="fas fa-folder-open text-4xl mb-4"></i>
+                    <p>No secrets found. Create your first secret above!</p>
+                </div>
+
+                <!-- Pagination -->
+                <div x-show="!loadingSecrets && (pagination.page > 1 || pagination.has_more)" class="flex justify-center items-center gap-4 mt-6">
+                    <button 
+                        @click="loadSecrets(pagination.page - 1)"
+                        :disabled="pagination.page <= 1"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed rounded-lg transition-all"
+                    >
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="px-4 py-2 bg-white/10 rounded-lg">
+                        Page <span x-text="pagination.page"></span>
+                    </span>
+                    <button 
+                        @click="loadSecrets(pagination.page + 1)"
+                        :disabled="!pagination.has_more"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed rounded-lg transition-all"
+                    >
+                        <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
             </div>
@@ -308,6 +414,7 @@
         function app() {
             return {
                 message: '',
+                customName: '',
                 ttl: 30,
                 processing: false,
                 showModal: false,
@@ -322,6 +429,14 @@
                     uid: localStorage.getItem('uid') || generatePassword(12),
                     pass: localStorage.getItem('pass') || generatePassword(24)
                 },
+                secrets: [],
+                loadingSecrets: false,
+                pagination: {
+                    page: 1,
+                    per_page: 10,
+                    total: 0,
+                    has_more: false
+                },
                 
                 init() {
                     // Save credentials if new
@@ -331,6 +446,9 @@
                     if (!localStorage.getItem('pass')) {
                         localStorage.setItem('pass', this.credentials.pass);
                     }
+                    
+                    // Load secrets on init
+                    this.loadSecrets();
                 },
                 
                 async processMessage() {
@@ -354,7 +472,8 @@
                                 iv: arrayBufferToBase64(iv),
                                 salt: arrayBufferToBase64(salt),
                                 ttl: parseInt(this.ttl) || 30,
-                                multiopen: true
+                                multiopen: true,
+                                custom_name: this.customName
                             })
                         });
                         
@@ -390,7 +509,87 @@
                         this.credentials.pass = generatePassword(24);
                         localStorage.setItem('uid', this.credentials.uid);
                         localStorage.setItem('pass', this.credentials.pass);
+                        this.loadSecrets(); // Reload secrets with new credentials
                     }
+                },
+                
+                async loadSecrets(page = 1) {
+                    this.loadingSecrets = true;
+                    
+                    try {
+                        const response = await fetch('/api/list-secrets', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                uid: this.credentials.uid,
+                                page: page,
+                                per_page: 10
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            this.secrets = data.secrets;
+                            this.pagination = {
+                                page: data.page,
+                                per_page: data.per_page,
+                                total: data.total,
+                                has_more: data.has_more
+                            };
+                        } else {
+                            console.error('Error loading secrets:', data);
+                            this.secrets = [];
+                        }
+                    } catch (error) {
+                        console.error('Error loading secrets:', error);
+                        this.secrets = [];
+                    } finally {
+                        this.loadingSecrets = false;
+                    }
+                },
+                
+                async updateSecretName(secret, newName) {
+                    if (secret.custom_name === newName) return;
+                    
+                    secret.updating = true;
+                    
+                    try {
+                        const response = await fetch('/api/update-custom-name', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                view: secret.id,
+                                uid: this.credentials.uid,
+                                custom_name: newName
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok && data.status === 'success') {
+                            secret.custom_name = newName;
+                            this.showToast = true;
+                            setTimeout(() => this.showToast = false, 3000);
+                        } else {
+                            alert('Failed to update secret name: ' + (data.message || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Error updating secret name:', error);
+                        alert('Failed to update secret name');
+                    } finally {
+                        secret.updating = false;
+                    }
+                },
+                
+                openSecret(secretId) {
+                    const url = `/view?view=${secretId}&uid=${this.credentials.uid}`;
+                    window.open(url, '_blank');
+                },
+                
+                async copySecretLink(secretId) {
+                    const url = `${window.location.origin}/view?view=${secretId}&uid=${this.credentials.uid}`;
+                    await this.copyToClipboard(url);
                 }
             }
         }

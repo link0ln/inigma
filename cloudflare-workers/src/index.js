@@ -201,6 +201,14 @@ async function handlePost(request, env) {
       return await handleUpdateOwner(body, env);
     }
     
+    if (path === '/api/list-secrets') {
+      return await handleListSecrets(body, env);
+    }
+    
+    if (path === '/api/update-custom-name') {
+      return await handleUpdateCustomName(body, env);
+    }
+    
     return new Response(JSON.stringify({ error: 'Invalid endpoint' }), {
       status: 404,
       headers: {
@@ -253,6 +261,7 @@ async function handleCreateMessage(body, env) {
     message: '',
     iv,
     salt,
+    custom_name: body.custom_name || '',
   };
   
   // Store in R2
@@ -404,6 +413,7 @@ async function handleUpdateOwner(body, env) {
   data.salt = salt;
   data.message = '';
   data.encrypted = 'true';
+  data.custom_name = data.custom_name || '';
   
   // Save updated data
   const success = await storeMessage(env, view, data);
@@ -430,6 +440,192 @@ async function handleUpdateOwner(body, env) {
       ...CORS_HEADERS,
     },
   });
+}
+
+/**
+ * Handle listing user secrets
+ */
+async function handleListSecrets(body, env) {
+  const { uid, page = 1, per_page = 10 } = body;
+  
+  if (!uid) {
+    return new Response(JSON.stringify({ error: 'Missing uid' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    });
+  }
+  
+  try {
+    const currentTime = getTimestamp();
+    const userSecrets = [];
+    
+    // List all objects in R2
+    const list = await env.INIGMA_STORAGE.list();
+    
+    for (const object of list.objects) {
+      try {
+        const messageData = await retrieveMessage(env, object.key);
+        
+        if (messageData && messageData.uid === uid) {
+          // Calculate days remaining
+          let daysRemaining;
+          if (messageData.ttl === 9999999999) {
+            daysRemaining = -1; // Permanent
+          } else {
+            daysRemaining = Math.max(0, Math.floor((messageData.ttl - currentTime) / (24 * 60 * 60)));
+          }
+          
+          // Skip expired secrets
+          if (messageData.ttl < currentTime && messageData.ttl !== 9999999999) {
+            continue;
+          }
+          
+          userSecrets.push({
+            id: object.key,
+            custom_name: messageData.custom_name || '',
+            days_remaining: daysRemaining,
+            created_time: new Date(object.uploaded).getTime()
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing message ${object.key}:`, error);
+      }
+    }
+    
+    // Sort by creation time (newest first)
+    userSecrets.sort((a, b) => b.created_time - a.created_time);
+    
+    // Pagination
+    const total = userSecrets.length;
+    const perPage = Math.min(per_page, 50); // Max 50 per page
+    const startIdx = (page - 1) * perPage;
+    const endIdx = startIdx + perPage;
+    
+    const paginatedSecrets = userSecrets.slice(startIdx, endIdx);
+    
+    // Remove created_time from response
+    for (const secret of paginatedSecrets) {
+      delete secret.created_time;
+    }
+    
+    return new Response(JSON.stringify({
+      secrets: paginatedSecrets,
+      page: page,
+      per_page: perPage,
+      total: total,
+      has_more: endIdx < total
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    });
+    
+  } catch (error) {
+    console.error('Error listing secrets:', error);
+    return new Response(JSON.stringify({ error: 'Failed to list secrets' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    });
+  }
+}
+
+/**
+ * Handle updating custom name
+ */
+async function handleUpdateCustomName(body, env) {
+  const { view, uid, custom_name } = body;
+  
+  if (!view || !isValidMessageId(view) || !uid || custom_name === undefined) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Missing required parameters',
+    }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    });
+  }
+  
+  try {
+    // Retrieve current data
+    const data = await retrieveMessage(env, view);
+    
+    if (!data) {
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Secret not found',
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
+        },
+      });
+    }
+    
+    // Check if user owns this secret
+    if (data.uid !== uid) {
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Access denied',
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
+        },
+      });
+    }
+    
+    // Update custom name
+    data.custom_name = custom_name;
+    
+    // Save updated data
+    const success = await storeMessage(env, view, data);
+    
+    if (!success) {
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Failed to update name',
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
+        },
+      });
+    }
+    
+    return new Response(JSON.stringify({
+      status: 'success',
+      message: 'Custom name updated',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    });
+    
+  } catch (error) {
+    console.error('Error updating custom name:', error);
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Failed to update name',
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    });
+  }
 }
 
 /**
