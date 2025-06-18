@@ -6,6 +6,7 @@
     <title>Inigma - Secure Message Sharing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/static/security-utils.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .gradient-bg {
@@ -52,40 +53,30 @@
                     ></textarea>
                 </div>
 
-                <div class="mb-6">
-                    <label for="customName" class="block text-lg font-semibold mb-3">
-                        <i class="fas fa-tag mr-2"></i>Custom Name (Optional)
-                    </label>
-                    <input 
-                        type="text"
-                        id="customName"
-                        x-model="customName"
-                        class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all"
-                        placeholder="Give your secret a memorable name..."
-                    >
-                </div>
-
-                <!-- TTL Settings -->
+                <!-- Form Settings -->
                 <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <!-- Custom Name and Create Button Row -->
                     <div>
-                        <label for="ttl" class="block text-sm font-medium mb-2">
-                            <i class="fas fa-clock mr-2"></i>Message Lifetime (days)
+                        <label for="customName" class="block text-lg font-semibold mb-3">
+                            <i class="fas fa-tag mr-2"></i>Custom Name (Optional)
                         </label>
                         <input 
-                            type="number" 
-                            id="ttl"
-                            x-model="ttl"
-                            min="0"
-                            class="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40"
-                            placeholder="0 for permanent"
+                            type="text"
+                            id="customName"
+                            x-model="customName"
+                            @input="customName = SecurityUtils.sanitizeCustomName($event.target.value)"
+                            class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all"
+                            placeholder="Give your secret a memorable name..."
+                            maxlength="100"
                         >
-                        <p class="text-xs mt-1 opacity-70">0 = permanent storage</p>
                     </div>
+                    
+                    <!-- Create Button aligned to the right -->
                     <div class="flex items-end">
                         <button 
                             @click="processMessage()"
                             :disabled="!message || processing"
-                            class="w-full px-6 py-3 bg-white/20 hover:bg-white/30 disabled:bg-white/10 rounded-lg font-semibold transition-all transform hover:scale-105 disabled:scale-100"
+                            class="w-full px-6 py-3 bg-green-500/30 hover:bg-green-500/50 disabled:bg-white/10 rounded-lg font-semibold transition-all transform hover:scale-105 disabled:scale-100"
                         >
                             <span x-show="!processing">
                                 <i class="fas fa-shield-alt mr-2"></i>Create Secure Link
@@ -95,6 +86,26 @@
                             </span>
                         </button>
                     </div>
+                </div>
+
+                <!-- TTL Settings -->
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label for="ttl" class="block text-lg font-semibold mb-3">
+                            <i class="fas fa-clock mr-2"></i>Message Lifetime (days)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="ttl"
+                            x-model="ttl"
+                            min="0"
+                            class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40"
+                            placeholder="0 for permanent"
+                        >
+                        <p class="text-xs mt-1 opacity-70">0 = permanent storage</p>
+                    </div>
+                    <!-- Empty column to maintain grid layout -->
+                    <div></div>
                 </div>
             </div>
 
@@ -170,38 +181,48 @@
                 <h3 class="text-xl font-bold mb-4">
                     <i class="fas fa-key mr-2"></i>Your Credentials
                 </h3>
-                <p class="mb-4 opacity-80">These credentials are stored locally and used for re-encryption when you access your messages.</p>
+                <p class="mb-4 opacity-80">These credentials are stored locally and used for re-encryption when you access your messages. You can edit them directly - changes are saved automatically.</p>
                 
                 <div class="grid md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-2">User ID</label>
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-edit mr-1 text-xs opacity-60"></i>User ID
+                        </label>
                         <div class="flex">
                             <input 
                                 type="text" 
                                 x-model="credentials.uid"
-                                class="flex-1 px-4 py-2 rounded-l-lg bg-white/10 border border-white/20 text-white font-mono text-sm"
-                                readonly
+                                @blur="saveCredentials()"
+                                @keyup.enter="$event.target.blur()"
+                                class="flex-1 px-4 py-2 rounded-l-lg bg-white/10 border border-white/20 text-white font-mono text-sm focus:outline-none focus:border-white/40 transition-all"
+                                placeholder="Enter your User ID..."
                             >
                             <button 
                                 @click="copyToClipboard(credentials.uid)"
                                 class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-r-lg transition-all"
+                                title="Copy User ID"
                             >
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Password</label>
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-edit mr-1 text-xs opacity-60"></i>Password
+                        </label>
                         <div class="flex">
                             <input 
-                                type="password" 
+                                :type="showCredentials ? 'text' : 'password'"
                                 x-model="credentials.pass"
-                                class="flex-1 px-4 py-2 rounded-l-lg bg-white/10 border border-white/20 text-white font-mono text-sm"
-                                readonly
+                                @blur="saveCredentials()"
+                                @keyup.enter="$event.target.blur()"
+                                class="flex-1 px-4 py-2 rounded-l-lg bg-white/10 border border-white/20 text-white font-mono text-sm focus:outline-none focus:border-white/40 transition-all"
+                                placeholder="Enter your password..."
                             >
                             <button 
                                 @click="copyToClipboard(credentials.pass)"
                                 class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-r-lg transition-all"
+                                title="Copy Password"
                             >
                                 <i class="fas fa-copy"></i>
                             </button>
@@ -214,7 +235,8 @@
                         @click="showCredentials = !showCredentials"
                         class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
                     >
-                        <i class="fas fa-eye mr-2"></i>Toggle Visibility
+                        <i :class="showCredentials ? 'fas fa-eye-slash' : 'fas fa-eye'" class="mr-2"></i>
+                        <span x-text="showCredentials ? 'Hide Password' : 'Show Password'"></span>
                     </button>
                     <button 
                         @click="regenerateCredentials()"
@@ -253,11 +275,12 @@
                             <div class="flex-1">
                                 <div class="flex items-center gap-3 mb-2">
                                     <input 
-                                        :value="secret.custom_name || 'Untitled Secret'"
-                                        @blur="updateSecretName(secret, $event.target.value)"
+                                        :value="SecurityUtils.sanitizeCustomName(secret.custom_name || 'Untitled Secret')"
+                                        @blur="updateSecretName(secret, SecurityUtils.sanitizeCustomName($event.target.value))"
                                         @keyup.enter="$event.target.blur()"
                                         class="text-lg font-semibold bg-transparent border-b-2 border-transparent hover:border-white/30 focus:border-white/50 focus:outline-none px-2 py-1 rounded transition-all"
                                         placeholder="Enter custom name..."
+                                        maxlength="100"
                                     >
                                     <span x-show="secret.updating" class="text-xs opacity-60">
                                         <i class="fas fa-spinner fa-spin"></i>
@@ -344,7 +367,7 @@
             x-transition
             class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg"
         >
-            <i class="fas fa-check mr-2"></i>Copied to clipboard!
+            <i class="fas fa-check mr-2"></i><span x-text="SecurityUtils.safeText(toastMessage)"></span>
         </div>
     </div>
 
@@ -419,6 +442,7 @@
                 processing: false,
                 showModal: false,
                 showToast: false,
+                toastMessage: 'Copied to clipboard!',
                 showCredentials: false,
                 links: {
                     full: '',
@@ -485,6 +509,7 @@
                         
                         // Auto-copy full link
                         await navigator.clipboard.writeText(this.links.full);
+                        this.toastMessage = 'Link copied to clipboard!';
                         this.showToast = true;
                         setTimeout(() => this.showToast = false, 3000);
                         
@@ -499,8 +524,20 @@
                 
                 async copyToClipboard(text) {
                     await navigator.clipboard.writeText(text);
+                    this.toastMessage = 'Copied to clipboard!';
                     this.showToast = true;
                     setTimeout(() => this.showToast = false, 3000);
+                },
+                
+                saveCredentials() {
+                    // Save both UID and password to localStorage
+                    localStorage.setItem('uid', this.credentials.uid);
+                    localStorage.setItem('pass', this.credentials.pass);
+                    
+                    // Show brief confirmation
+                    this.toastMessage = 'Credentials saved!';
+                    this.showToast = true;
+                    setTimeout(() => this.showToast = false, 2000);
                 },
                 
                 regenerateCredentials() {
@@ -550,7 +587,15 @@
                 },
                 
                 async updateSecretName(secret, newName) {
-                    if (secret.custom_name === newName) return;
+                    const sanitizedName = SecurityUtils.sanitizeCustomName(newName);
+                    
+                    if (secret.custom_name === sanitizedName) return;
+                    
+                    // Rate limiting check
+                    if (!SecurityUtils.checkRateLimit(`updateSecret_${secret.id}`, 5, 60000)) {
+                        alert('Too many update requests. Please wait a moment.');
+                        return;
+                    }
                     
                     secret.updating = true;
                     
@@ -561,18 +606,19 @@
                             body: JSON.stringify({
                                 view: secret.id,
                                 uid: this.credentials.uid,
-                                custom_name: newName
+                                custom_name: sanitizedName
                             })
                         });
                         
                         const data = await response.json();
                         
                         if (response.ok && data.status === 'success') {
-                            secret.custom_name = newName;
+                            secret.custom_name = sanitizedName;
+                            this.toastMessage = 'Secret name updated!';
                             this.showToast = true;
                             setTimeout(() => this.showToast = false, 3000);
                         } else {
-                            alert('Failed to update secret name: ' + (data.message || 'Unknown error'));
+                            alert('Failed to update secret name: ' + SecurityUtils.sanitizeText(data.message || 'Unknown error'));
                         }
                     } catch (error) {
                         console.error('Error updating secret name:', error);

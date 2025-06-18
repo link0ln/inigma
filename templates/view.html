@@ -6,6 +6,7 @@
     <title>Inigma - View Secure Message</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/static/security-utils.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .gradient-bg {
@@ -54,7 +55,7 @@
             <div x-show="error && !loading" class="glass-morphism rounded-2xl p-8 fade-in">
                 <div class="text-center mb-6">
                     <i class="fas fa-exclamation-triangle text-5xl text-yellow-400 mb-4"></i>
-                    <h2 class="text-2xl font-bold mb-2" x-text="errorMessage"></h2>
+                    <h2 class="text-2xl font-bold mb-2" x-text="SecurityUtils.safeText(errorMessage)"></h2>
                     <p class="opacity-80" x-show="errorMessage.includes('expired')">This message has expired and is no longer available.</p>
                     <p class="opacity-80" x-show="errorMessage.includes('No such')">The requested message could not be found.</p>
                 </div>
@@ -120,7 +121,7 @@
                     </div>
                     
                     <div class="bg-white/10 rounded-lg p-6">
-                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="decryptedMessage"></pre>
+                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="SecurityUtils.safeText(decryptedMessage)"></pre>
                     </div>
                     
                     <div class="mt-6 flex justify-between items-center">
@@ -255,11 +256,11 @@
                 
                 async init() {
                     const urlParams = new URLSearchParams(window.location.search);
-                    const view = urlParams.get('view');
-                    const urlKey = urlParams.get('key');
+                    const view = SecurityUtils.sanitizeUrlParam(urlParams.get('view') || '');
+                    const urlKey = SecurityUtils.sanitizeUrlParam(urlParams.get('key') || '');
                     
-                    if (!view) {
-                        this.showError('No message ID provided');
+                    if (!view || !SecurityUtils.isValidMessageId(view)) {
+                        this.showError('Invalid or missing message ID');
                         return;
                     }
                     
@@ -373,7 +374,7 @@
                 
                 showError(message) {
                     this.error = true;
-                    this.errorMessage = message;
+                    this.errorMessage = SecurityUtils.sanitizeText(message);
                     this.loading = false;
                 },
                 

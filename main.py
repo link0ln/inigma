@@ -4,6 +4,8 @@ import json
 import logging
 import secrets
 import time
+import html
+import re
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
@@ -12,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 import uvicorn
 
 # Configure logging
@@ -43,6 +45,12 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+# Security headers middleware
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    return add_security_headers(response)
+
 # Create directories
 KEYS_DIR = Path("keys")
 KEYS_DIR.mkdir(exist_ok=True)
@@ -60,6 +68,16 @@ class CreateMessageRequest(BaseModel):
     ttl: Optional[int] = 30
     multiopen: bool = True
     custom_name: Optional[str] = ""
+    
+    @validator('custom_name')
+    def sanitize_custom_name_field(cls, v):
+        return sanitize_custom_name(v or "")
+    
+    @validator('ttl')
+    def validate_ttl(cls, v):
+        if v is not None and (v < 0 or v > 365):
+            raise ValueError('TTL must be between 0 and 365 days')
+        return v
 
 class UpdateOwnerRequest(BaseModel):
     view: str
@@ -67,20 +85,54 @@ class UpdateOwnerRequest(BaseModel):
     encrypted_message: str
     iv: str
     salt: str
+    
+    @validator('view')
+    def validate_view_id(cls, v):
+        if not validate_message_id(v):
+            raise ValueError('Invalid message ID format')
+        return v
 
 class ViewMessageRequest(BaseModel):
     view: str
     uid: str
+    
+    @validator('view')
+    def validate_view_id(cls, v):
+        if not validate_message_id(v):
+            raise ValueError('Invalid message ID format')
+        return v
 
 class ListSecretsRequest(BaseModel):
     uid: str
     page: int = 1
     per_page: int = 10
+    
+    @validator('page')
+    def validate_page(cls, v):
+        if v < 1:
+            raise ValueError('Page must be >= 1')
+        return v
+    
+    @validator('per_page')
+    def validate_per_page(cls, v):
+        if v < 1 or v > 50:
+            raise ValueError('Per page must be between 1 and 50')
+        return v
 
 class UpdateCustomNameRequest(BaseModel):
     view: str
     uid: str
     custom_name: str
+    
+    @validator('view')
+    def validate_view_id(cls, v):
+        if not validate_message_id(v):
+            raise ValueError('Invalid message ID format')
+        return v
+    
+    @validator('custom_name')
+    def sanitize_custom_name_field(cls, v):
+        return sanitize_custom_name(v or "")
 
 class MessageData(BaseModel):
     multiopen: bool
@@ -97,6 +149,57 @@ def generate_random_string(length: int = 25) -> str:
     """Generate cryptographically secure random string"""
     logger.debug(f"Generating random string of length {length}")
     return secrets.token_urlsafe(length)[:length]
+
+def sanitize_text(text: str) -> str:
+    """Sanitize text input to prevent XSS"""
+    if not isinstance(text, str):
+        return ""
+    
+    # HTML escape the text
+    sanitized = html.escape(text)
+    
+    # Remove any remaining dangerous characters
+    sanitized = re.sub(r'[<>"/\\]', '', sanitized)
+    
+    return sanitized[:1000]  # Limit length
+
+def sanitize_custom_name(name: str) -> str:
+    """Sanitize custom name input"""
+    if not isinstance(name, str):
+        return ""
+    
+    # Remove HTML tags and dangerous characters
+    sanitized = re.sub(r'<[^>]*>', '', name)  # Remove HTML tags
+    sanitized = re.sub(r'[<>"/\\]', '', sanitized)  # Remove dangerous chars
+    sanitized = sanitized.strip()
+    
+    return sanitized[:100]  # Limit to 100 characters
+
+def validate_message_id(message_id: str) -> bool:
+    """Validate message ID format"""
+    if not isinstance(message_id, str):
+        return False
+    return bool(re.match(r'^[a-zA-Z0-9_-]{1,50}$', message_id))
+
+def add_security_headers(response: Response) -> Response:
+    """Add security headers to response"""
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://cdnjs.cloudflare.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self'"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    return response
 
 def get_timestamp() -> int:
     """Get current timestamp"""
@@ -129,14 +232,20 @@ async def index():
     """Serve main page"""
     logger.info("Serving index page")
     with open("templates/index.html", "r") as f:
-        return f.read()
+        content = f.read()
+    
+    response = HTMLResponse(content)
+    return add_security_headers(response)
 
 @app.get("/view", response_class=HTMLResponse)
 async def view_page():
     """Serve view page"""
     logger.info("Serving view page")
     with open("templates/view.html", "r") as f:
-        return f.read()
+        content = f.read()
+    
+    response = HTMLResponse(content)
+    return add_security_headers(response)
 
 @app.post("/api/create")
 async def create_message(request: CreateMessageRequest):
@@ -178,20 +287,18 @@ async def create_message(request: CreateMessageRequest):
     domain = os.getenv("DOMAIN", "localhost:8000")
     protocol = "https" if domain != "localhost:8000" else "http"
     
-    return {
+    response_data = {
         "url": f"{protocol}://{domain}/",
         "view": fname
     }
+    
+    response = JSONResponse(response_data)
+    return add_security_headers(response)
 
 @app.post("/api/view")
 async def view_message(request: ViewMessageRequest):
     """Retrieve encrypted message"""
     logger.info(f"Viewing message {request.view} for uid {request.uid}")
-    
-    # Validate filename
-    if not request.view.replace("-", "").replace("_", "").isalnum():
-        logger.warning(f"Invalid view parameter: {request.view}")
-        raise HTTPException(status_code=400, detail="Invalid view parameter")
     
     file_path = KEYS_DIR / request.view
     
@@ -239,11 +346,6 @@ async def view_message(request: ViewMessageRequest):
 async def update_owner(request: UpdateOwnerRequest):
     """Update message owner"""
     logger.info(f"Updating owner for message {request.view}")
-    
-    # Validate filename
-    if not request.view.replace("-", "").replace("_", "").isalnum():
-        logger.warning(f"Invalid view parameter: {request.view}")
-        return {"status": "failed", "message": "Invalid view parameter"}
     
     file_path = KEYS_DIR / request.view
     
@@ -343,11 +445,6 @@ async def list_user_secrets(request: ListSecretsRequest):
 async def update_custom_name(request: UpdateCustomNameRequest):
     """Update custom name for a secret"""
     logger.info(f"Updating custom name for secret {request.view}")
-    
-    # Validate filename
-    if not request.view.replace("-", "").replace("_", "").isalnum():
-        logger.warning(f"Invalid view parameter: {request.view}")
-        return {"status": "failed", "message": "Invalid view parameter"}
     
     file_path = KEYS_DIR / request.view
     
