@@ -4,33 +4,34 @@
 
 ### GET /
 
-Возвращает главную страницу приложения для создания сообщений.
+Returns main application page for creating messages.
 
-**Response**: HTML страница
+**Response**: HTML page
 
 ---
 
 ### GET /view
 
-Возвращает страницу для просмотра сообщений.
+Returns page for viewing messages.
 
-**Response**: HTML страница
+**Response**: HTML page
 
 ---
 
 ### POST /api/create
 
-Создает новое зашифрованное сообщение.
+Creates new encrypted message.
 
 **Request Body**:
 ```json
 {
-  "encrypted_message": "string", // Зашифрованное сообщение (обязательно)
-  "encrypted": "true",           // Всегда "true" для зашифрованных сообщений
-  "iv": "string",               // Initialization Vector для AES (обязательно)
-  "salt": "string",             // Соль для ключа (обязательно)
-  "ttl": 30,                    // Время жизни в днях (по умолчанию 30, 0 = бессрочно)
-  "multiopen": true             // Разрешить множественное открытие (по умолчанию true)
+  "encrypted_message": "string",
+  "encrypted": "true",
+  "iv": "string",
+  "salt": "string",
+  "ttl": 30,
+  "multiopen": true,
+  "custom_name": "string"
 }
 ```
 
@@ -46,13 +47,13 @@
 
 ### POST /api/view
 
-Получает зашифрованное сообщение для просмотра.
+Retrieves encrypted message for viewing.
 
 **Request Body**:
 ```json
 {
-  "view": "string",  // ID сообщения (обязательно)
-  "uid": "string"    // ID пользователя для проверки доступа (обязательно)
+  "view": "string",
+  "uid": "string"
 }
 ```
 
@@ -96,16 +97,16 @@
 
 ### POST /api/update
 
-Обновляет владельца сообщения (принимает владение).
+Updates message owner (takes ownership).
 
 **Request Body**:
 ```json
 {
-  "view": "string",              // ID сообщения (обязательно)
-  "uid": "string",               // Новый ID владельца (обязательно)
-  "encrypted_message": "string", // Новое зашифрованное сообщение (обязательно)
-  "iv": "string",               // Новый IV (обязательно)
-  "salt": "string"              // Новая соль (обязательно)
+  "view": "string",
+  "uid": "string",
+  "encrypted_message": "string",
+  "iv": "string",
+  "salt": "string"
 }
 ```
 
@@ -136,7 +137,7 @@
 
 ### GET /health
 
-Проверка здоровья сервиса.
+Service health check.
 
 **Response**:
 ```json
@@ -149,27 +150,14 @@
 
 ### GET /static/fallback-crypto.js
 
-Возвращает JavaScript файл с резервными криптографическими функциями.
+Returns JavaScript file with fallback cryptographic functions.
 
-**Response**: JavaScript код
+**Response**: JavaScript code
 
-## Шифрование
+## Security
 
-Приложение использует клиентское шифрование AES-256-GCM:
-
-1. **Генерация ключа**: На основе пароля пользователя и соли (PBKDF2)
-2. **Шифрование**: AES-256-GCM с случайным IV
-3. **Хранение**: В R2 хранится только зашифрованное сообщение, IV и соль
-
-## Безопасность
-
-- Все сообщения шифруются на клиенте
-- Сервер никогда не имеет доступа к незашифрованным данным
-- Автоматическое удаление сообщений по истечении TTL
-- CORS настроен для безопасной работы с фронтендом
-
-## Лимиты
-
-- Максимальный размер сообщения: ограничен размером R2 объекта (до 5 ТБ)
-- TTL: от 1 дня до бессрочного хранения
-- Автоматическая очистка: ежедневно в 2:00 UTC
+- All messages are encrypted client-side using AES-256-GCM
+- Server never has access to unencrypted data
+- PBKDF2 key derivation with random salt and IV
+- Automatic TTL-based message expiration
+- CORS configured for secure frontend operation
