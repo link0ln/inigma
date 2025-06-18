@@ -24,13 +24,23 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Inigma - Secure Message Sharing")
 
-# Add CORS middleware
+# Configure CORS with target domain restrictions
+allowed_origins = [
+    "https://inigma.idone.su",  # Production domain
+    "http://localhost:8000",    # Local development
+    "http://127.0.0.1:8000",   # Alternative local
+]
+
+# Add environment variable override for custom domains
+if custom_origins := os.getenv("CORS_ORIGINS"):
+    allowed_origins.extend(custom_origins.split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 # Create directories

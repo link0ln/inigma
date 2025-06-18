@@ -3,12 +3,38 @@
  * Cloudflare Workers Implementation
  */
 
-// CORS headers for all responses
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+  'https://inigma.idone.su',  // Production domain
+  'http://localhost:8000',    // Local development
+  'http://127.0.0.1:8000',   // Alternative local
+];
+
+// Base CORS headers
+const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+/**
+ * Get CORS headers with proper origin checking
+ */
+function getCorsHeaders(request) {
+  const origin = request.headers.get('Origin');
+  
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    return {
+      ...BASE_CORS_HEADERS,
+      'Access-Control-Allow-Origin': origin,
+    };
+  }
+  
+  // Fallback for non-browser requests or allowed origins
+  return {
+    ...BASE_CORS_HEADERS,
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS[0], // Default to production
+  };
+}
 
 /**
  * Generate cryptographically secure random string
@@ -122,10 +148,10 @@ async function cleanupOldMessages(env) {
 /**
  * Handle OPTIONS requests (CORS preflight)
  */
-function handleOptions() {
+function handleOptions(request) {
   return new Response(null, {
     status: 204,
-    headers: CORS_HEADERS,
+    headers: getCorsHeaders(request),
   });
 }
 
@@ -140,7 +166,7 @@ async function handleGet(request, env) {
     return new Response(indexHTML, {
       headers: {
         'Content-Type': 'text/html',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -149,7 +175,7 @@ async function handleGet(request, env) {
     return new Response(viewHTML, {
       headers: {
         'Content-Type': 'text/html',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -158,7 +184,7 @@ async function handleGet(request, env) {
     return new Response(JSON.stringify({ status: 'healthy' }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -168,14 +194,14 @@ async function handleGet(request, env) {
     return new Response(fallbackCryptoJS, {
       headers: {
         'Content-Type': 'application/javascript',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
   
   return new Response('Not Found', { 
     status: 404,
-    headers: CORS_HEADERS,
+    headers: getCorsHeaders(request),
   });
 }
 
@@ -190,30 +216,30 @@ async function handlePost(request, env) {
     const body = await request.json();
     
     if (path === '/api/create') {
-      return await handleCreateMessage(body, env);
+      return await handleCreateMessage(body, env, request);
     }
     
     if (path === '/api/view') {
-      return await handleViewMessage(body, env);
+      return await handleViewMessage(body, env, request);
     }
     
     if (path === '/api/update') {
-      return await handleUpdateOwner(body, env);
+      return await handleUpdateOwner(body, env, request);
     }
     
     if (path === '/api/list-secrets') {
-      return await handleListSecrets(body, env);
+      return await handleListSecrets(body, env, request);
     }
     
     if (path === '/api/update-custom-name') {
-      return await handleUpdateCustomName(body, env);
+      return await handleUpdateCustomName(body, env, request);
     }
     
     return new Response(JSON.stringify({ error: 'Invalid endpoint' }), {
       status: 404,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
     
@@ -223,7 +249,7 @@ async function handlePost(request, env) {
       status: 400,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -232,7 +258,7 @@ async function handlePost(request, env) {
 /**
  * Handle message creation
  */
-async function handleCreateMessage(body, env) {
+async function handleCreateMessage(body, env, request) {
   const { encrypted_message, encrypted = 'true', iv, salt, ttl = 30, multiopen = true } = body;
   
   if (!encrypted_message || !iv || !salt) {
@@ -240,7 +266,7 @@ async function handleCreateMessage(body, env) {
       status: 400,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -272,7 +298,7 @@ async function handleCreateMessage(body, env) {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -285,7 +311,7 @@ async function handleCreateMessage(body, env) {
   }), {
     headers: {
       'Content-Type': 'application/json',
-      ...CORS_HEADERS,
+      ...getCorsHeaders(request),
     },
   });
 }
@@ -293,7 +319,7 @@ async function handleCreateMessage(body, env) {
 /**
  * Handle message viewing
  */
-async function handleViewMessage(body, env) {
+async function handleViewMessage(body, env, request) {
   const { view, uid } = body;
   
   if (!view || !isValidMessageId(view)) {
@@ -303,7 +329,7 @@ async function handleViewMessage(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -318,7 +344,7 @@ async function handleViewMessage(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -334,7 +360,7 @@ async function handleViewMessage(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -344,7 +370,7 @@ async function handleViewMessage(body, env) {
     return new Response(JSON.stringify(data), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -355,7 +381,7 @@ async function handleViewMessage(body, env) {
   }), {
     headers: {
       'Content-Type': 'application/json',
-      ...CORS_HEADERS,
+      ...getCorsHeaders(request),
     },
   });
 }
@@ -363,7 +389,7 @@ async function handleViewMessage(body, env) {
 /**
  * Handle owner update
  */
-async function handleUpdateOwner(body, env) {
+async function handleUpdateOwner(body, env, request) {
   const { view, uid, encrypted_message, iv, salt } = body;
   
   if (!view || !isValidMessageId(view)) {
@@ -373,7 +399,7 @@ async function handleUpdateOwner(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -388,7 +414,7 @@ async function handleUpdateOwner(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -401,7 +427,7 @@ async function handleUpdateOwner(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -426,7 +452,7 @@ async function handleUpdateOwner(body, env) {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -437,7 +463,7 @@ async function handleUpdateOwner(body, env) {
   }), {
     headers: {
       'Content-Type': 'application/json',
-      ...CORS_HEADERS,
+      ...getCorsHeaders(request),
     },
   });
 }
@@ -445,7 +471,7 @@ async function handleUpdateOwner(body, env) {
 /**
  * Handle listing user secrets
  */
-async function handleListSecrets(body, env) {
+async function handleListSecrets(body, env, request) {
   const { uid, page = 1, per_page = 10 } = body;
   
   if (!uid) {
@@ -453,7 +479,7 @@ async function handleListSecrets(body, env) {
       status: 400,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -520,7 +546,7 @@ async function handleListSecrets(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
     
@@ -530,7 +556,7 @@ async function handleListSecrets(body, env) {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -539,7 +565,7 @@ async function handleListSecrets(body, env) {
 /**
  * Handle updating custom name
  */
-async function handleUpdateCustomName(body, env) {
+async function handleUpdateCustomName(body, env, request) {
   const { view, uid, custom_name } = body;
   
   if (!view || !isValidMessageId(view) || !uid || custom_name === undefined) {
@@ -550,7 +576,7 @@ async function handleUpdateCustomName(body, env) {
       status: 400,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -566,7 +592,7 @@ async function handleUpdateCustomName(body, env) {
       }), {
         headers: {
           'Content-Type': 'application/json',
-          ...CORS_HEADERS,
+          ...getCorsHeaders(request),
         },
       });
     }
@@ -579,7 +605,7 @@ async function handleUpdateCustomName(body, env) {
       }), {
         headers: {
           'Content-Type': 'application/json',
-          ...CORS_HEADERS,
+          ...getCorsHeaders(request),
         },
       });
     }
@@ -598,7 +624,7 @@ async function handleUpdateCustomName(body, env) {
         status: 500,
         headers: {
           'Content-Type': 'application/json',
-          ...CORS_HEADERS,
+          ...getCorsHeaders(request),
         },
       });
     }
@@ -609,7 +635,7 @@ async function handleUpdateCustomName(body, env) {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
     
@@ -622,7 +648,7 @@ async function handleUpdateCustomName(body, env) {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
-        ...CORS_HEADERS,
+        ...getCorsHeaders(request),
       },
     });
   }
@@ -643,7 +669,7 @@ export default {
     const method = request.method;
     
     if (method === 'OPTIONS') {
-      return handleOptions();
+      return handleOptions(request);
     }
     
     if (method === 'GET') {
@@ -656,7 +682,7 @@ export default {
     
     return new Response('Method not allowed', { 
       status: 405,
-      headers: CORS_HEADERS,
+      headers: getCorsHeaders(request),
     });
   },
   
