@@ -235,6 +235,10 @@ async function handlePost(request, env) {
       return await handleUpdateCustomName(body, env, request);
     }
     
+    if (path === '/api/delete-secret') {
+      return await handleDeleteSecret(body, env, request);
+    }
+    
     return new Response(JSON.stringify({ error: 'Invalid endpoint' }), {
       status: 404,
       headers: {
@@ -644,6 +648,95 @@ async function handleUpdateCustomName(body, env, request) {
     return new Response(JSON.stringify({
       status: 'failed',
       message: 'Failed to update name',
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+}
+
+/**
+ * Handle deleting a secret
+ */
+async function handleDeleteSecret(body, env, request) {
+  const { view, uid } = body;
+  
+  if (!view || !isValidMessageId(view) || !uid) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Missing required parameters',
+    }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+  
+  try {
+    // Retrieve current data
+    const data = await retrieveMessage(env, view);
+    
+    if (!data) {
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Secret not found',
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request),
+        },
+      });
+    }
+    
+    // Check if user owns this secret
+    if (data.uid !== uid) {
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Access denied',
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request),
+        },
+      });
+    }
+    
+    // Delete the message
+    const success = await deleteMessage(env, view);
+    
+    if (!success) {
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Failed to delete secret',
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request),
+        },
+      });
+    }
+    
+    return new Response(JSON.stringify({
+      status: 'success',
+      message: 'Secret deleted',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+    
+  } catch (error) {
+    console.error('Error deleting secret:', error);
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Failed to delete secret',
     }), {
       status: 500,
       headers: {

@@ -252,7 +252,7 @@
                         </label>
                         <div class="flex">
                             <input 
-                                type="text" 
+                                :type="showCredentials ? 'text' : 'password'"
                                 x-model="credentials.uid"
                                 @blur="saveCredentials()"
                                 @keyup.enter="$event.target.blur()"
@@ -298,7 +298,7 @@
                         class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
                     >
                         <i :class="showCredentials ? 'fas fa-eye-slash' : 'fas fa-eye'" class="mr-2"></i>
-                        <span x-text="showCredentials ? 'Hide Password' : 'Show Password'"></span>
+                        <span x-text="showCredentials ? 'Hide credentials' : 'Show credentials'"></span>
                     </button>
                     <button 
                         @click="regenerateCredentials()"
@@ -364,11 +364,12 @@
                                     <i class="fas fa-external-link-alt"></i>
                                 </button>
                                 <button 
-                                    @click="copySecretLink(secret.id)"
-                                    class="px-3 py-2 bg-green-500/30 hover:bg-green-500/50 rounded-lg transition-all text-sm"
-                                    title="Copy Link"
+                                    @click="deleteSecret(secret)"
+                                    class="px-3 py-2 bg-red-500/30 hover:bg-red-500/50 rounded-lg transition-all text-sm"
+                                    title="Delete Secret"
+                                    :disabled="deletingSecrets[secret.id] || false"
                                 >
-                                    <i class="fas fa-copy"></i>
+                                    <i class="fas fa-trash" :class="{ 'fa-spin fa-spinner': deletingSecrets[secret.id] }"></i>
                                 </button>
                             </div>
                         </div>
@@ -517,6 +518,7 @@
                 },
                 secrets: [],
                 loadingSecrets: false,
+                deletingSecrets: {},
                 pagination: {
                     page: 1,
                     per_page: 10,
@@ -695,10 +697,46 @@
                     window.open(url, '_blank');
                 },
                 
-                async copySecretLink(secretId) {
-                    const url = `${window.location.origin}/view?view=${secretId}&uid=${this.credentials.uid}`;
-                    await this.copyToClipboard(url);
-                }
+                async deleteSecret(secret) {
+                    if (!confirm(`Are you sure you want to delete "${secret.custom_name || 'Untitled Secret'}"? This action cannot be undone.`)) {
+                        return;
+                    }
+                    
+                    this.deletingSecrets[secret.id] = true;
+                    
+                    try {
+                        const response = await fetch('/api/delete-secret', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                view: secret.id,
+                                uid: this.credentials.uid
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok && data.status === 'success') {
+                            // Remove secret from the list
+                            const index = this.secrets.findIndex(s => s.id === secret.id);
+                            if (index !== -1) {
+                                this.secrets.splice(index, 1);
+                            }
+                            
+                            this.toastMessage = 'Secret deleted successfully!';
+                            this.showToast = true;
+                            setTimeout(() => this.showToast = false, 3000);
+                        } else {
+                            alert('Failed to delete secret: ' + SecurityUtils.sanitizeText(data.message || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Error deleting secret:', error);
+                        alert('Failed to delete secret');
+                    } finally {
+                        delete this.deletingSecrets[secret.id];
+                    }
+                },
+                
             }
         }
     </script>

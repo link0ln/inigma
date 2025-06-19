@@ -36,7 +36,7 @@ const fallbackCryptoJS = \`${escapeForJS(fallbackCryptoJS)}\`;
 `;
 
 // Replace placeholder in worker code
-workerCode = workerCode.replace('${TEMPLATE_PLACEHOLDER}', templatesContent);
+workerCode = workerCode.replace('// ${TEMPLATE_PLACEHOLDER}', templatesContent);
 
 // Write the built file
 fs.writeFileSync(path.join(buildDir, 'index.js'), workerCode);

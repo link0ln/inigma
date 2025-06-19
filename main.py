@@ -134,6 +134,16 @@ class UpdateCustomNameRequest(BaseModel):
     def sanitize_custom_name_field(cls, v):
         return sanitize_custom_name(v or "")
 
+class DeleteSecretRequest(BaseModel):
+    view: str
+    uid: str
+    
+    @validator('view')
+    def validate_view_id(cls, v):
+        if not validate_message_id(v):
+            raise ValueError('Invalid message ID format')
+        return v
+
 class MessageData(BaseModel):
     multiopen: bool
     ttl: int
@@ -475,6 +485,40 @@ async def update_custom_name(request: UpdateCustomNameRequest):
     
     logger.info(f"Successfully updated custom name for secret {request.view}")
     return {"status": "success", "message": "Custom name updated"}
+
+@app.post("/api/delete-secret")
+async def delete_secret(request: DeleteSecretRequest):
+    """Delete a secret"""
+    logger.info(f"Deleting secret {request.view}")
+    
+    file_path = KEYS_DIR / request.view
+    
+    # Check if file exists
+    if not file_path.exists():
+        logger.warning(f"Secret not found: {request.view}")
+        return {"status": "failed", "message": "Secret not found"}
+    
+    # Read current data
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        logger.error(f"Invalid JSON in file {request.view}")
+        return {"status": "failed", "message": "Invalid secret data"}
+    
+    # Check if user owns this secret
+    if data.get("uid") != request.uid:
+        logger.warning(f"Access denied for secret deletion {request.view}")
+        return {"status": "failed", "message": "Access denied"}
+    
+    # Delete the file
+    try:
+        file_path.unlink()
+        logger.info(f"Successfully deleted secret {request.view}")
+        return {"status": "success", "message": "Secret deleted"}
+    except OSError as e:
+        logger.error(f"Error deleting secret {request.view}: {e}")
+        return {"status": "failed", "message": "Failed to delete secret"}
 
 @app.get("/health")
 async def health_check():
