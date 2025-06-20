@@ -23,8 +23,19 @@ function viewApp() {
                 return;
             }
             
-            // Get local credentials
-            const uid = localStorage.getItem('uid') || this.generateAndSaveUid();
+            // Get local credentials (generate only if not exists, but don't overwrite pass)
+            let uid = localStorage.getItem('uid');
+            if (!uid) {
+                uid = generatePassword(12);
+                localStorage.setItem('uid', uid);
+                // Only set pass if it doesn't exist
+                if (!localStorage.getItem('pass')) {
+                    localStorage.setItem('pass', generatePassword(24));
+                }
+                console.log('Generated new UID for view:', uid);
+            } else {
+                console.log('Using existing UID for view:', uid);
+            }
             
             try {
                 const response = await fetch('/api/view', {
@@ -61,13 +72,6 @@ function viewApp() {
             }
         },
         
-        generateAndSaveUid() {
-            const uid = generatePassword(12);
-            const pass = generatePassword(24);
-            localStorage.setItem('uid', uid);
-            localStorage.setItem('pass', pass);
-            return uid;
-        },
         
         async decryptMessage(password) {
             try {

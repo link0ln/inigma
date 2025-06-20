@@ -1,11 +1,11 @@
 # Inigma - Cloudflare Workers Deployment
 
-This directory contains the Cloudflare Workers implementation of Inigma, a secure message sharing application with end-to-end encryption. This serverless deployment leverages Cloudflare's global edge network and R2 object storage.
+This directory contains the Cloudflare Workers implementation of Inigma, a secure message sharing application with end-to-end encryption. This serverless deployment leverages Cloudflare's global edge network and D1 database.
 
 ## Features
 
 - **Global Edge Deployment**: Runs on Cloudflare's worldwide network
-- **R2 Object Storage**: Encrypted messages stored in Cloudflare R2
+- **D1 Database**: Encrypted messages stored in Cloudflare D1
 - **Automatic Scaling**: Serverless architecture with built-in scaling
 - **Custom Domain Support**: Deploy on your own domain
 - **Zero Maintenance**: No server management required
@@ -19,7 +19,7 @@ This directory contains the Cloudflare Workers implementation of Inigma, a secur
 
 ### Prerequisites
 
-- Cloudflare account with Workers and R2 enabled
+- Cloudflare account with Workers and D1 enabled
 - Node.js 18+ installed
 - Wrangler CLI installed globally
 
@@ -35,10 +35,10 @@ npm install -g wrangler
 wrangler login
 ```
 
-### 3. Create R2 Bucket
+### 3. Create D1 Database
 
 ```bash
-wrangler r2 bucket create inigma-storage
+wrangler d1 create inigma-database
 ```
 
 ### 4. Install Dependencies
@@ -85,8 +85,8 @@ The deployment uses `wrangler.toml` for configuration. Key settings:
 ```toml
 [env.production]
 name = "inigma"
-r2_buckets = [
-  { binding = "STORAGE", bucket_name = "inigma-storage" }
+d1_databases = [
+  { binding = "INIGMA_DB", database_name = "inigma-database", database_id = "your-database-id" }
 ]
 
 [env.production.triggers]
@@ -129,7 +129,7 @@ cloudflare-workers/
 │   └── utils/
 │       ├── cors.js          # CORS utilities
 │       ├── crypto.js        # Cryptographic functions
-│       ├── storage.js       # R2 storage operations
+│       ├── database.js      # D1 database operations
 │       └── validation.js    # Input validation
 ├── build/                   # Generated files (created during build)
 ├── wrangler.toml           # Cloudflare Workers configuration
@@ -165,7 +165,7 @@ The Workers implementation provides the same API as the main application:
 - ✅ Message deletion
 
 ### Storage & Performance
-- ✅ R2 object storage for scalability
+- ✅ D1 database for data persistence
 - ✅ Automatic cleanup via cron triggers
 - ✅ Global edge caching
 - ✅ Optimized for low latency
@@ -180,7 +180,7 @@ The Workers implementation provides the same API as the main application:
 
 | Feature | Docker Deployment | Cloudflare Workers |
 |---------|------------------|-------------------|
-| **Storage** | Local filesystem | R2 Object Storage |
+| **Storage** | Local filesystem | D1 Database |
 | **Cleanup** | File-based cron | Scheduled triggers |
 | **Scaling** | Manual/K8s | Automatic |
 | **Geographic Distribution** | Single location | Global edge network |
@@ -215,9 +215,10 @@ Monitor usage and performance in the Cloudflare dashboard:
 - Verify CORS headers in `src/utils/cors.js`
 - Ensure the domain is properly configured
 
-**R2 Storage Errors**
-- Check that the R2 bucket exists and is properly configured
-- Verify R2 binding in `wrangler.toml`
+**Database Connection Errors**
+- Check that the D1 database exists and is properly configured
+- Verify D1 binding in `wrangler.toml`
+- Ensure database tables are created
 
 **Deployment Failures**
 - Ensure you're authenticated with Wrangler

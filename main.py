@@ -17,6 +17,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 import uvicorn
 
+from database import DatabaseManager
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -88,10 +90,8 @@ async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     return add_security_headers(response)
 
-# Create directories
-KEYS_DIR = Path("keys")
-KEYS_DIR.mkdir(exist_ok=True)
-logger.info(f"Created keys directory at {KEYS_DIR}")
+# Initialize database
+db = DatabaseManager()
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -180,15 +180,6 @@ class DeleteSecretRequest(BaseModel):
             raise ValueError('Invalid message ID format')
         return v
 
-class MessageData(BaseModel):
-    ttl: int
-    uid: str
-    encrypted_message: str
-    iv: str
-    salt: str
-    custom_name: str = ""
-    creator_uid: str = ""
-
 def generate_random_string(length: int = 25) -> str:
     """Generate cryptographically secure random string"""
     logger.debug(f"Generating random string of length {length}")
@@ -249,27 +240,11 @@ def get_timestamp() -> int:
     """Get current timestamp"""
     return int(time.time())
 
-def cleanup_old_files():
-    """Remove files older than 50 days"""
-    logger.info("Starting cleanup of old files")
-    current_time = get_timestamp()
-    deleted_count = 0
-    
-    for file_path in KEYS_DIR.glob("*"):
-        if file_path.is_file():
-            file_age_days = (current_time - file_path.stat().st_mtime) / (24 * 60 * 60)
-            if file_age_days > 50:
-                file_path.unlink()
-                deleted_count += 1
-                logger.debug(f"Deleted old file: {file_path.name}")
-    
-    logger.info(f"Cleanup completed. Deleted {deleted_count} files")
-
 @app.on_event("startup")
 async def startup_event():
     """Run cleanup on startup"""
     logger.info("Application starting up")
-    cleanup_old_files()
+    db.cleanup_expired_messages()
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -302,26 +277,27 @@ async def create_message(request: CreateMessageRequest):
         ttl = get_timestamp() + (request.ttl * 24 * 60 * 60)
         logger.debug(f"Setting TTL to {request.ttl} days")
     
-    # Generate unique filename
-    fname = generate_random_string(25)
-    logger.debug(f"Generated filename: {fname}")
+    # Generate unique message ID
+    message_id = generate_random_string(25)
+    logger.debug(f"Generated message ID: {message_id}")
     
     # Create message data
-    message_data = MessageData(
-        ttl=ttl,
-        uid="",
-        encrypted_message=request.encrypted_message,
-        iv=request.iv,
-        salt=request.salt,
-        custom_name=request.custom_name or "",
-        creator_uid=request.creator_uid
-    )
+    message_data = {
+        "ttl": ttl,
+        "uid": "",
+        "encrypted_message": request.encrypted_message,
+        "iv": request.iv,
+        "salt": request.salt,
+        "custom_name": request.custom_name or "",
+        "creator_uid": request.creator_uid
+    }
     
-    # Save to file
-    file_path = KEYS_DIR / fname
-    with open(file_path, "w") as f:
-        json.dump(message_data.dict(), f)
-    logger.info(f"Message saved to {fname}")
+    # Save to database
+    if not db.store_message(message_id, message_data):
+        logger.error(f"Failed to store message {message_id}")
+        raise HTTPException(status_code=500, detail="Failed to store message")
+    
+    logger.info(f"Message saved with ID {message_id}")
     
     # Get domain from environment or use default
     domain = os.getenv("DOMAIN", "localhost:8000")
@@ -329,7 +305,7 @@ async def create_message(request: CreateMessageRequest):
     
     response_data = {
         "url": f"{protocol}://{domain}/",
-        "view": fname
+        "view": message_id
     }
     
     response = JSONResponse(response_data)
@@ -340,25 +316,14 @@ async def view_message(request: ViewMessageRequest):
     """Retrieve encrypted message"""
     logger.info(f"Viewing message {request.view} for uid {request.uid}")
     
-    file_path = KEYS_DIR / request.view
+    # Retrieve message from database
+    data = db.retrieve_message(request.view)
     
-    # Check if file exists
-    if not file_path.exists():
+    # Check if message exists
+    if not data:
         logger.warning(f"Message not found: {request.view}")
         return {
             "message": "No such hash!",
-            "redirect_root": "true"
-        }
-    
-    # Read message data
-    try:
-        with open(file_path, "r") as f:
-            data = json.load(f)
-        logger.debug(f"Message data loaded for {request.view}")
-    except json.JSONDecodeError:
-        logger.error(f"Invalid JSON in file {request.view}")
-        return {
-            "message": "Invalid message data!",
             "redirect_root": "true"
         }
     
@@ -396,231 +361,76 @@ async def update_owner(request: UpdateOwnerRequest):
     """Update message owner"""
     logger.info(f"Updating owner for message {request.view}")
     
-    file_path = KEYS_DIR / request.view
-    
-    # Check if file exists
-    if not file_path.exists():
+    # Check if message exists and is not owned
+    data = db.retrieve_message(request.view)
+    if not data:
         logger.warning(f"Message not found for update: {request.view}")
         return {"status": "failed", "message": "No such secret"}
-    
-    # Read current data
-    try:
-        with open(file_path, "r") as f:
-            data = json.load(f)
-    except json.JSONDecodeError:
-        logger.error(f"Invalid JSON in file {request.view}")
-        return {"status": "failed", "message": "Invalid message data"}
     
     # Check if already owned
     if data["uid"] != "":
         logger.info(f"Message {request.view} already owned")
         return {"status": "failed", "message": "Secret already owned"}
     
-    # Update data
-    data["uid"] = request.uid
-    data["encrypted_message"] = request.encrypted_message
-    data["iv"] = request.iv
-    data["salt"] = request.salt
+    # Update message owner
+    success = db.update_message_owner(
+        request.view, 
+        request.uid, 
+        request.encrypted_message, 
+        request.iv, 
+        request.salt
+    )
     
-    # Save updated data
-    with open(file_path, "w") as f:
-        json.dump(data, f)
-    
-    logger.info(f"Successfully updated owner for message {request.view}")
-    return {"status": "success", "message": "secret owned"}
+    if success:
+        logger.info(f"Successfully updated owner for message {request.view}")
+        return {"status": "success", "message": "secret owned"}
+    else:
+        logger.error(f"Failed to update owner for message {request.view}")
+        return {"status": "failed", "message": "Failed to update secret"}
 
 @app.post("/api/list-pending-secrets")
 async def list_pending_secrets(request: ListSecretsRequest):
     """List user's pending secrets (created but not yet claimed)"""
     logger.info(f"Listing pending secrets for creator {request.uid}")
     
-    pending_secrets = []
-    current_time = get_timestamp()
-    
-    # Scan all files for user's pending secrets
-    for file_path in KEYS_DIR.glob("*"):
-        if file_path.is_file():
-            try:
-                with open(file_path, "r") as f:
-                    data = json.load(f)
-                
-                # Check if this secret was created by the user and is still unclaimed
-                if (data.get("creator_uid") == request.uid and 
-                    data.get("uid") == ""):  # uid is empty means unclaimed
-                    # Calculate days remaining
-                    if data["ttl"] == 9999999999:
-                        days_remaining = -1  # Permanent
-                    else:
-                        days_remaining = max(0, (data["ttl"] - current_time) // (24 * 60 * 60))
-                    
-                    # Skip expired secrets
-                    if data["ttl"] < current_time and data["ttl"] != 9999999999:
-                        continue
-                    
-                    pending_secrets.append({
-                        "id": file_path.name,
-                        "custom_name": data.get("custom_name", ""),
-                        "days_remaining": days_remaining,
-                        "created_time": file_path.stat().st_mtime
-                    })
-            except (json.JSONDecodeError, KeyError):
-                continue
-    
-    # Sort by creation time (newest first)
-    pending_secrets.sort(key=lambda x: x["created_time"], reverse=True)
-    
-    # Pagination
-    total = len(pending_secrets)
-    per_page = min(request.per_page, 50)  # Max 50 per page
-    start_idx = (request.page - 1) * per_page
-    end_idx = start_idx + per_page
-    
-    paginated_secrets = pending_secrets[start_idx:end_idx]
-    
-    # Remove created_time from response
-    for secret in paginated_secrets:
-        del secret["created_time"]
-    
-    return {
-        "secrets": paginated_secrets,
-        "page": request.page,
-        "per_page": per_page,
-        "total": total,
-        "has_more": end_idx < total
-    }
+    result = db.list_pending_secrets(request.uid, request.page, request.per_page)
+    return result
 
 @app.post("/api/list-secrets")
 async def list_user_secrets(request: ListSecretsRequest):
     """List user's secrets with pagination"""
     logger.info(f"Listing secrets for user {request.uid}")
     
-    user_secrets = []
-    current_time = get_timestamp()
-    
-    # Scan all files for user's secrets
-    for file_path in KEYS_DIR.glob("*"):
-        if file_path.is_file():
-            try:
-                with open(file_path, "r") as f:
-                    data = json.load(f)
-                
-                # Check if this secret belongs to the user
-                if data.get("uid") == request.uid:
-                    # Calculate days remaining
-                    if data["ttl"] == 9999999999:
-                        days_remaining = -1  # Permanent
-                    else:
-                        days_remaining = max(0, (data["ttl"] - current_time) // (24 * 60 * 60))
-                    
-                    # Skip expired secrets
-                    if data["ttl"] < current_time and data["ttl"] != 9999999999:
-                        continue
-                    
-                    user_secrets.append({
-                        "id": file_path.name,
-                        "custom_name": data.get("custom_name", ""),
-                        "days_remaining": days_remaining,
-                        "created_time": file_path.stat().st_mtime
-                    })
-            except (json.JSONDecodeError, KeyError):
-                continue
-    
-    # Sort by creation time (newest first)
-    user_secrets.sort(key=lambda x: x["created_time"], reverse=True)
-    
-    # Pagination
-    total = len(user_secrets)
-    per_page = min(request.per_page, 50)  # Max 50 per page
-    start_idx = (request.page - 1) * per_page
-    end_idx = start_idx + per_page
-    
-    paginated_secrets = user_secrets[start_idx:end_idx]
-    
-    # Remove created_time from response
-    for secret in paginated_secrets:
-        del secret["created_time"]
-    
-    return {
-        "secrets": paginated_secrets,
-        "page": request.page,
-        "per_page": per_page,
-        "total": total,
-        "has_more": end_idx < total
-    }
+    result = db.list_user_secrets(request.uid, request.page, request.per_page)
+    return result
 
 @app.post("/api/update-custom-name")
 async def update_custom_name(request: UpdateCustomNameRequest):
     """Update custom name for a secret"""
     logger.info(f"Updating custom name for secret {request.view}")
     
-    file_path = KEYS_DIR / request.view
+    success = db.update_custom_name(request.view, request.uid, request.custom_name)
     
-    # Check if file exists
-    if not file_path.exists():
-        logger.warning(f"Secret not found: {request.view}")
-        return {"status": "failed", "message": "Secret not found"}
-    
-    # Read current data
-    try:
-        with open(file_path, "r") as f:
-            data = json.load(f)
-    except json.JSONDecodeError:
-        logger.error(f"Invalid JSON in file {request.view}")
-        return {"status": "failed", "message": "Invalid secret data"}
-    
-    # Check if user owns this secret
-    if data.get("uid") != request.uid:
-        logger.warning(f"Access denied for secret {request.view}")
-        return {"status": "failed", "message": "Access denied"}
-    
-    # Update custom name
-    data["custom_name"] = request.custom_name
-    
-    # Save updated data
-    with open(file_path, "w") as f:
-        json.dump(data, f)
-    
-    logger.info(f"Successfully updated custom name for secret {request.view}")
-    return {"status": "success", "message": "Custom name updated"}
+    if success:
+        logger.info(f"Successfully updated custom name for secret {request.view}")
+        return {"status": "success", "message": "Custom name updated"}
+    else:
+        logger.warning(f"Failed to update custom name for secret {request.view}")
+        return {"status": "failed", "message": "Secret not found or access denied"}
 
 @app.post("/api/delete-secret")
 async def delete_secret(request: DeleteSecretRequest):
     """Delete a secret"""
     logger.info(f"Deleting secret {request.view}")
     
-    file_path = KEYS_DIR / request.view
+    success = db.delete_message(request.view, request.uid)
     
-    # Check if file exists
-    if not file_path.exists():
-        logger.warning(f"Secret not found: {request.view}")
-        return {"status": "failed", "message": "Secret not found"}
-    
-    # Read current data
-    try:
-        with open(file_path, "r") as f:
-            data = json.load(f)
-    except json.JSONDecodeError:
-        logger.error(f"Invalid JSON in file {request.view}")
-        return {"status": "failed", "message": "Invalid secret data"}
-    
-    # Check if user owns this secret (owner) or created it (pending)
-    if data.get("uid") != "" and data.get("uid") != request.uid:
-        # Secret is owned by someone else
-        logger.warning(f"Access denied for secret deletion {request.view} - owned by different user")
-        return {"status": "failed", "message": "Access denied"}
-    elif data.get("uid") == "" and data.get("creator_uid") != request.uid:
-        # Secret is pending and user is not the creator
-        logger.warning(f"Access denied for secret deletion {request.view} - not the creator")
-        return {"status": "failed", "message": "Access denied"}
-    
-    # Delete the file
-    try:
-        file_path.unlink()
+    if success:
         logger.info(f"Successfully deleted secret {request.view}")
         return {"status": "success", "message": "Secret deleted"}
-    except OSError as e:
-        logger.error(f"Error deleting secret {request.view}: {e}")
-        return {"status": "failed", "message": "Failed to delete secret"}
+    else:
+        logger.warning(f"Failed to delete secret {request.view}")
+        return {"status": "failed", "message": "Secret not found or access denied"}
 
 @app.get("/health")
 async def health_check():

@@ -9,10 +9,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create necessary directories
-RUN mkdir -p /app/keys /app/static
+RUN mkdir -p /app/static
 
 # Copy application files
 COPY main.py .
+COPY database.py .
 COPY templates-modular/ ./templates-modular/
 COPY static/ ./static/
 

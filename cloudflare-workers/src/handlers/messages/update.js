@@ -3,8 +3,14 @@
  */
 
 import { getCorsHeaders } from '../../utils/cors.js';
-import { isValidMessageId } from '../../utils/validation.js';
-import { retrieveMessage, storeMessage } from '../../utils/storage.js';
+import { 
+  isValidMessageId, 
+  isValidUid, 
+  isValidEncryptedData, 
+  isValidIv, 
+  isValidSalt 
+} from '../../utils/validation.js';
+import { retrieveMessage, updateMessageOwner } from '../../utils/database.js';
 
 export async function handleUpdateOwner(body, env, request) {
   const { view, uid, encrypted_message, iv, salt } = body;
@@ -13,6 +19,54 @@ export async function handleUpdateOwner(body, env, request) {
     return new Response(JSON.stringify({
       status: 'failed',
       message: 'Invalid view parameter',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (!uid || !isValidUid(uid)) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Invalid UID format',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (!encrypted_message || !isValidEncryptedData(encrypted_message)) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Invalid encrypted message format',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (!iv || !isValidIv(iv)) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Invalid IV format',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (!salt || !isValidSalt(salt)) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Invalid salt format',
     }), {
       headers: {
         'Content-Type': 'application/json',
@@ -49,22 +103,13 @@ export async function handleUpdateOwner(body, env, request) {
     });
   }
   
-  // Update data
-  data.uid = uid;
-  data.encrypted_message = encrypted_message;
-  data.iv = iv;
-  data.salt = salt;
-  data.custom_name = data.custom_name || '';
-  // Preserve creator_uid
-  data.creator_uid = data.creator_uid || '';
-  
-  // Save updated data
-  const success = await storeMessage(env, view, data);
+  // Update message owner using D1
+  const success = await updateMessageOwner(env, view, uid, encrypted_message, iv, salt);
   
   if (!success) {
     return new Response(JSON.stringify({
       status: 'failed',
-      message: 'Failed to update message',
+      message: 'Failed to update secret',
     }), {
       status: 500,
       headers: {

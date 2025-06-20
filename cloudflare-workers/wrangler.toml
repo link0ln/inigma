@@ -6,10 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [env.production]
 routes = [ { pattern = "inigma.idone.su", custom_domain = true } ]
 
-# R2 bucket binding
-[[env.production.r2_buckets]]
-binding = "INIGMA_STORAGE"
-bucket_name = "inigma-storage"
+# D1 database binding
+[[env.production.d1_databases]]
+binding = "INIGMA_DB"
+database_name = "inigma-database"
+database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # Переменные окружения
 [env.production.vars]

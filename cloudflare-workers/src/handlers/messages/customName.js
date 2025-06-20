@@ -3,16 +3,55 @@
  */
 
 import { getCorsHeaders } from '../../utils/cors.js';
-import { isValidMessageId } from '../../utils/validation.js';
-import { retrieveMessage, storeMessage } from '../../utils/storage.js';
+import { isValidMessageId, isValidUid, isValidCustomName, sanitizeString } from '../../utils/validation.js';
+import { updateCustomName } from '../../utils/database.js';
 
 export async function handleUpdateCustomName(body, env, request) {
   const { view, uid, custom_name } = body;
   
-  if (!view || !isValidMessageId(view) || !uid || custom_name === undefined) {
+  if (!view || !isValidMessageId(view)) {
     return new Response(JSON.stringify({
       status: 'failed',
-      message: 'Missing required parameters',
+      message: 'Invalid view parameter',
+    }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (!uid || !isValidUid(uid)) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Invalid UID format',
+    }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (custom_name === undefined) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Missing custom_name parameter',
+    }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (!isValidCustomName(custom_name)) {
+    return new Response(JSON.stringify({
+      status: 'failed',
+      message: 'Invalid custom name format or length',
     }), {
       status: 400,
       headers: {
@@ -23,46 +62,17 @@ export async function handleUpdateCustomName(body, env, request) {
   }
   
   try {
-    // Retrieve current data
-    const data = await retrieveMessage(env, view);
+    // Sanitize custom name
+    const sanitizedName = sanitizeString(custom_name);
     
-    if (!data) {
-      return new Response(JSON.stringify({
-        status: 'failed',
-        message: 'Secret not found',
-      }), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...getCorsHeaders(request),
-        },
-      });
-    }
-    
-    // Check if user owns this secret
-    if (data.uid !== uid) {
-      return new Response(JSON.stringify({
-        status: 'failed',
-        message: 'Access denied',
-      }), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...getCorsHeaders(request),
-        },
-      });
-    }
-    
-    // Update custom name
-    data.custom_name = custom_name;
-    
-    // Save updated data
-    const success = await storeMessage(env, view, data);
+    // Update custom name using D1
+    const success = await updateCustomName(env, view, uid, sanitizedName);
     
     if (!success) {
       return new Response(JSON.stringify({
         status: 'failed',
-        message: 'Failed to update name',
+        message: 'Secret not found or access denied',
       }), {
-        status: 500,
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),

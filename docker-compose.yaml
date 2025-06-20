@@ -6,7 +6,7 @@ services:
     expose:
       - "8000"
     volumes:
-      - ./keys:/app/keys
+      - ./data:/app/data
     environment:
       - PORT=8000
       - DOMAIN=${DOMAIN:-localhost:8443}

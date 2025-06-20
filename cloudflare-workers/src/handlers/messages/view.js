@@ -3,8 +3,8 @@
  */
 
 import { getCorsHeaders } from '../../utils/cors.js';
-import { isValidMessageId, getTimestamp } from '../../utils/validation.js';
-import { retrieveMessage, deleteMessage } from '../../utils/storage.js';
+import { isValidMessageId, isValidUid, getTimestamp } from '../../utils/validation.js';
+import { retrieveMessage, deleteMessage } from '../../utils/database.js';
 
 export async function handleViewMessage(body, env, request) {
   const { view, uid } = body;
@@ -12,6 +12,18 @@ export async function handleViewMessage(body, env, request) {
   if (!view || !isValidMessageId(view)) {
     return new Response(JSON.stringify({
       message: 'Invalid view parameter',
+      redirect_root: 'true',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  if (uid && !isValidUid(uid)) {
+    return new Response(JSON.stringify({
+      message: 'Invalid UID format',
       redirect_root: 'true',
     }), {
       headers: {
@@ -39,8 +51,6 @@ export async function handleViewMessage(body, env, request) {
   // Check TTL
   const currentTime = getTimestamp();
   if (data.ttl < currentTime) {
-    // Delete expired message
-    await deleteMessage(env, view);
     return new Response(JSON.stringify({
       message: 'Message has expired!',
       redirect_root: 'true',

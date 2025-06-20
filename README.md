@@ -21,6 +21,9 @@ Inigma is a secure message sharing application that allows users to send private
 git clone <repository-url>
 cd inigma
 
+# Create data directory for persistent database storage
+mkdir -p data
+
 # Start the application
 docker-compose up --build -d
 
@@ -57,10 +60,10 @@ Inigma supports two deployment architectures:
 
 ### 1. Docker Deployment (Recommended for Self-Hosting)
 
-- **FastAPI Backend**: REST API with file-based storage
+- **FastAPI Backend**: REST API with SQLite database storage
 - **Nginx Proxy**: HTTPS termination with self-signed certificates
 - **Client-Side Encryption**: Web Crypto API for AES encryption
-- **File Storage**: Local filesystem storage in `keys/` directory
+- **SQLite Database**: Persistent storage with indexed queries for better performance
 
 #### Network Architecture
 
@@ -75,14 +78,14 @@ Internet → Nginx (8080/8443) → Internal Network → Inigma App (8000)
 ### 2. Cloudflare Workers Deployment (Serverless)
 
 - **Edge Runtime**: Deployed on Cloudflare's global edge network
-- **R2 Storage**: Object storage for encrypted messages
+- **D1 Database**: Cloudflare's SQLite-based database for edge computing
 - **Custom Domain**: Can be deployed on custom domains
 - **Global CDN**: Automatic global distribution and caching
 
 #### Cloudflare Architecture
 
 ```
-Internet → Cloudflare Edge → Worker Runtime → R2 Storage
+Internet → Cloudflare Edge → Worker Runtime → D1 Database
 ```
 
 **Production Instance**: [https://inigma.idone.su](https://inigma.idone.su)
@@ -112,17 +115,21 @@ For detailed Cloudflare Workers deployment instructions, see [`cloudflare-worker
 
 ### Message Structure
 
-Messages are stored as JSON files with the following structure:
+Messages are stored in the database with the following structure:
 
-```json
-{
-  "encrypted_message": "base64-encoded-encrypted-data",
-  "iv": "base64-encoded-initialization-vector",
-  "salt": "base64-encoded-salt",
-  "ttl": "2024-12-31T23:59:59",
-  "uid": "user-credential-hash",
-  "custom_name": "Optional custom name"
-}
+```sql
+-- SQLite/D1 Database Schema
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,              -- Message ID
+    ttl INTEGER NOT NULL,             -- Time to live (Unix timestamp)
+    uid TEXT NOT NULL DEFAULT '',    -- Owner user ID (empty if unclaimed)
+    encrypted_message TEXT NOT NULL, -- Base64 encrypted content
+    iv TEXT NOT NULL,                -- Base64 initialization vector
+    salt TEXT NOT NULL,              -- Base64 salt for key derivation
+    custom_name TEXT DEFAULT '',     -- Optional custom name
+    creator_uid TEXT DEFAULT '',     -- Creator user ID
+    created_at INTEGER NOT NULL      -- Creation timestamp
+);
 ```
 
 ## Deployment Options
@@ -157,7 +164,7 @@ npm run deploy:production
 **Benefits:**
 - Global edge network deployment
 - Automatic scaling and caching
-- R2 object storage
+- D1 database for reliable data storage
 - Custom domain support
 - Zero server maintenance
 

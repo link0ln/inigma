@@ -6,7 +6,7 @@
 import { handleOptions } from './handlers/options.js';
 import { handleGet } from './handlers/get.js';
 import { handlePost } from './handlers/post.js';
-import { cleanupOldMessages } from './utils/storage.js';
+import { cleanupOldMessages } from './utils/database.js';
 import { getCorsHeaders } from './utils/cors.js';
 
 /**

@@ -37,9 +37,11 @@ function app() {
         },
         
         init() {
+            console.log('Main app init - UID:', this.credentials.uid);
             // Save credentials if new
             if (!localStorage.getItem('uid')) {
                 localStorage.setItem('uid', this.credentials.uid);
+                console.log('Saved new UID to localStorage:', this.credentials.uid);
             }
             if (!localStorage.getItem('pass')) {
                 localStorage.setItem('pass', this.credentials.pass);
