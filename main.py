@@ -62,12 +62,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Data models
 class CreateMessageRequest(BaseModel):
     encrypted_message: str
-    encrypted: str = "true"
     iv: str
     salt: str
     ttl: Optional[int] = 30
-    multiopen: bool = True
     custom_name: Optional[str] = ""
+    creator_uid: str
     
     @validator('custom_name')
     def sanitize_custom_name_field(cls, v):
@@ -145,15 +144,13 @@ class DeleteSecretRequest(BaseModel):
         return v
 
 class MessageData(BaseModel):
-    multiopen: bool
     ttl: int
     uid: str
-    encrypted: str
     encrypted_message: str
-    message: str = ""
     iv: str
     salt: str
     custom_name: str = ""
+    creator_uid: str = ""
 
 def generate_random_string(length: int = 25) -> str:
     """Generate cryptographically secure random string"""
@@ -276,15 +273,13 @@ async def create_message(request: CreateMessageRequest):
     
     # Create message data
     message_data = MessageData(
-        multiopen=request.multiopen,
         ttl=ttl,
         uid="",
-        encrypted=request.encrypted,
         encrypted_message=request.encrypted_message,
-        message="",
         iv=request.iv,
         salt=request.salt,
-        custom_name=request.custom_name or ""
+        custom_name=request.custom_name or "",
+        creator_uid=request.creator_uid
     )
     
     # Save to file
@@ -382,8 +377,6 @@ async def update_owner(request: UpdateOwnerRequest):
     data["encrypted_message"] = request.encrypted_message
     data["iv"] = request.iv
     data["salt"] = request.salt
-    data["message"] = ""
-    data["encrypted"] = "true"
     
     # Save updated data
     with open(file_path, "w") as f:
@@ -391,6 +384,66 @@ async def update_owner(request: UpdateOwnerRequest):
     
     logger.info(f"Successfully updated owner for message {request.view}")
     return {"status": "success", "message": "secret owned"}
+
+@app.post("/api/list-pending-secrets")
+async def list_pending_secrets(request: ListSecretsRequest):
+    """List user's pending secrets (created but not yet claimed)"""
+    logger.info(f"Listing pending secrets for creator {request.uid}")
+    
+    pending_secrets = []
+    current_time = get_timestamp()
+    
+    # Scan all files for user's pending secrets
+    for file_path in KEYS_DIR.glob("*"):
+        if file_path.is_file():
+            try:
+                with open(file_path, "r") as f:
+                    data = json.load(f)
+                
+                # Check if this secret was created by the user and is still unclaimed
+                if (data.get("creator_uid") == request.uid and 
+                    data.get("uid") == ""):  # uid is empty means unclaimed
+                    # Calculate days remaining
+                    if data["ttl"] == 9999999999:
+                        days_remaining = -1  # Permanent
+                    else:
+                        days_remaining = max(0, (data["ttl"] - current_time) // (24 * 60 * 60))
+                    
+                    # Skip expired secrets
+                    if data["ttl"] < current_time and data["ttl"] != 9999999999:
+                        continue
+                    
+                    pending_secrets.append({
+                        "id": file_path.name,
+                        "custom_name": data.get("custom_name", ""),
+                        "days_remaining": days_remaining,
+                        "created_time": file_path.stat().st_mtime
+                    })
+            except (json.JSONDecodeError, KeyError):
+                continue
+    
+    # Sort by creation time (newest first)
+    pending_secrets.sort(key=lambda x: x["created_time"], reverse=True)
+    
+    # Pagination
+    total = len(pending_secrets)
+    per_page = min(request.per_page, 50)  # Max 50 per page
+    start_idx = (request.page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    paginated_secrets = pending_secrets[start_idx:end_idx]
+    
+    # Remove created_time from response
+    for secret in paginated_secrets:
+        del secret["created_time"]
+    
+    return {
+        "secrets": paginated_secrets,
+        "page": request.page,
+        "per_page": per_page,
+        "total": total,
+        "has_more": end_idx < total
+    }
 
 @app.post("/api/list-secrets")
 async def list_user_secrets(request: ListSecretsRequest):

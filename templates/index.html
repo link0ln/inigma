@@ -229,7 +229,7 @@
 
                     <div class="mt-6 flex justify-end">
                         <button 
-                            @click="showModal = false; message = ''; customName = ''; loadSecrets()"
+                            @click="showModal = false; message = ''; customName = ''; loadSecrets(); loadPendingSecrets()"
                             class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
                         >
                             Close
@@ -404,6 +404,94 @@
                 </div>
             </div>
 
+            <!-- Pending Secrets Section -->
+            <div class="glass-morphism rounded-2xl p-8 mb-8 fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">
+                        <i class="fas fa-clock mr-2"></i>Pending Secrets
+                    </h3>
+                    <button 
+                        @click="loadPendingSecrets()"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all text-sm"
+                        :disabled="loadingPendingSecrets"
+                    >
+                        <i class="fas fa-sync mr-2" :class="{ 'fa-spin': loadingPendingSecrets }"></i>Refresh
+                    </button>
+                </div>
+
+                <p class="mb-4 opacity-80 text-sm">These are secrets you created that haven't been opened yet. They will move to "My Secrets" once someone opens them.</p>
+
+                <!-- Loading State -->
+                <div x-show="loadingPendingSecrets" class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p>Loading pending secrets...</p>
+                </div>
+
+                <!-- Pending Secrets List -->
+                <div x-show="!loadingPendingSecrets && pendingSecrets.length > 0" class="space-y-3">
+                    <template x-for="secret in pendingSecrets" :key="secret.id">
+                        <div class="bg-white/10 rounded-lg p-4 flex justify-between items-center">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="text-lg font-semibold" x-text="SecurityUtils.sanitizeCustomName(secret.custom_name || 'Untitled Secret')"></span>
+                                    <span class="px-2 py-1 bg-yellow-500/30 text-yellow-200 text-xs rounded-full">Pending</span>
+                                </div>
+                                <div class="text-sm opacity-70">
+                                    ID: <span class="font-mono" x-text="secret.id"></span>
+                                </div>
+                                <div class="text-sm opacity-70">
+                                    <span x-text="secret.days_remaining === -1 ? 'Permanent' : secret.days_remaining + ' days remaining'"></span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button 
+                                    @click="copyToClipboard(generatePendingSecretLink(secret.id))"
+                                    class="px-3 py-2 bg-blue-500/30 hover:bg-blue-500/50 rounded-lg transition-all text-sm"
+                                    title="Copy Link"
+                                >
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button 
+                                    @click="deleteSecret(secret)"
+                                    class="px-3 py-2 bg-red-500/30 hover:bg-red-500/50 rounded-lg transition-all text-sm"
+                                    title="Delete Secret"
+                                    :disabled="deletingSecrets[secret.id] || false"
+                                >
+                                    <i class="fas fa-trash" :class="{ 'fa-spin fa-spinner': deletingSecrets[secret.id] }"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="!loadingPendingSecrets && pendingSecrets.length === 0" class="text-center py-8 opacity-70">
+                    <i class="fas fa-hourglass-half text-4xl mb-4"></i>
+                    <p>No pending secrets. Create a secret above and it will appear here until someone opens it!</p>
+                </div>
+
+                <!-- Pagination -->
+                <div x-show="!loadingPendingSecrets && (pendingPagination.page > 1 || pendingPagination.has_more)" class="flex justify-center items-center gap-4 mt-6">
+                    <button 
+                        @click="loadPendingSecrets(pendingPagination.page - 1)"
+                        :disabled="pendingPagination.page <= 1"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed rounded-lg transition-all"
+                    >
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="px-4 py-2 bg-white/10 rounded-lg">
+                        Page <span x-text="pendingPagination.page"></span>
+                    </span>
+                    <button 
+                        @click="loadPendingSecrets(pendingPagination.page + 1)"
+                        :disabled="!pendingPagination.has_more"
+                        class="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed rounded-lg transition-all"
+                    >
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
             <!-- Features -->
             <div class="grid md:grid-cols-3 gap-6 mb-8">
                 <div class="glass-morphism rounded-xl p-6 text-center fade-in">
@@ -528,6 +616,14 @@
                     total: 0,
                     has_more: false
                 },
+                pendingSecrets: [],
+                loadingPendingSecrets: false,
+                pendingPagination: {
+                    page: 1,
+                    per_page: 10,
+                    total: 0,
+                    has_more: false
+                },
                 
                 init() {
                     // Save credentials if new
@@ -540,6 +636,7 @@
                     
                     // Load secrets on init
                     this.loadSecrets();
+                    this.loadPendingSecrets();
                 },
                 
                 async processMessage() {
@@ -559,12 +656,11 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 encrypted_message: arrayBufferToBase64(encrypted),
-                                encrypted: "true",
                                 iv: arrayBufferToBase64(iv),
                                 salt: arrayBufferToBase64(salt),
                                 ttl: parseInt(this.ttl) || 30,
-                                multiopen: true,
-                                custom_name: this.customName
+                                custom_name: this.customName,
+                                creator_uid: this.credentials.uid
                             })
                         });
                         
@@ -618,6 +714,7 @@
                         localStorage.setItem('uid', this.credentials.uid);
                         localStorage.setItem('pass', this.credentials.pass);
                         this.loadSecrets(); // Reload secrets with new credentials
+                        this.loadPendingSecrets(); // Reload pending secrets
                     }
                 },
                 
@@ -655,6 +752,47 @@
                     } finally {
                         this.loadingSecrets = false;
                     }
+                },
+                
+                async loadPendingSecrets(page = 1) {
+                    this.loadingPendingSecrets = true;
+                    
+                    try {
+                        const response = await fetch('/api/list-pending-secrets', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                uid: this.credentials.uid,
+                                page: page,
+                                per_page: 10
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            this.pendingSecrets = data.secrets;
+                            this.pendingPagination = {
+                                page: data.page,
+                                per_page: data.per_page,
+                                total: data.total,
+                                has_more: data.has_more
+                            };
+                        } else {
+                            console.error('Error loading pending secrets:', data);
+                            this.pendingSecrets = [];
+                        }
+                    } catch (error) {
+                        console.error('Error loading pending secrets:', error);
+                        this.pendingSecrets = [];
+                    } finally {
+                        this.loadingPendingSecrets = false;
+                    }
+                },
+                
+                generatePendingSecretLink(secretId) {
+                    const domain = window.location.origin;
+                    return `${domain}/view?view=${secretId}`;
                 },
                 
                 async updateSecretName(secret, newName) {
