@@ -54,7 +54,16 @@ export async function handleViewMessage(body, env, request) {
   
   // Check access permissions
   if (data.uid === '' || data.uid === uid) {
-    return new Response(JSON.stringify(data), {
+    // Create response with only necessary fields
+    const responseData = {
+      encrypted_message: data.encrypted_message,
+      iv: data.iv,
+      salt: data.salt,
+      custom_name: data.custom_name || '',
+      is_owner: data.uid === uid
+    };
+    
+    return new Response(JSON.stringify(responseData), {
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),

@@ -41,7 +41,7 @@ function viewApp() {
                 }
                 
                 this.messageData = data;
-                this.isOwner = data.uid === uid;
+                this.isOwner = data.is_owner;
                 
                 // Try to decrypt
                 if (this.isOwner) {

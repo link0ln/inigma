@@ -374,7 +374,16 @@ async def view_message(request: ViewMessageRequest):
     # Check access permissions
     if data["uid"] == "" or data["uid"] == request.uid:
         logger.info(f"Access granted for message {request.view}")
-        return data
+        
+        # Create response with only necessary fields, excluding sensitive uid and creator_uid
+        response_data = {
+            "encrypted_message": data["encrypted_message"],
+            "iv": data["iv"],
+            "salt": data["salt"],
+            "custom_name": data.get("custom_name", ""),
+            "is_owner": data["uid"] == request.uid
+        }
+        return response_data
     
     logger.warning(f"Access denied for message {request.view}")
     return {
