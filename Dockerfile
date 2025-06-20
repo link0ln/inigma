@@ -9,11 +9,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create necessary directories
-RUN mkdir -p /app/keys /app/templates /app/static
+RUN mkdir -p /app/keys /app/static
 
 # Copy application files
 COPY main.py .
-COPY templates/ ./templates/
+COPY templates-modular/ ./templates-modular/
 COPY static/ ./static/
 
 # Create non-root user

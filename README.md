@@ -162,9 +162,11 @@ helm upgrade inigma ./helm/
 ## File Structure
 
 - `main.py`: Complete FastAPI application with all API endpoints
-- `templates/`: HTML templates for web interface
-  - `index.html`: Main application with message creation and management
-  - `view.html`: Message viewing interface
+- `templates-modular/`: Modular HTML templates for web interface
+  - `pages/`: Main page templates
+  - `components/`: Reusable HTML components
+  - `scripts/`: JavaScript modules
+  - `styles/`: CSS modules
 - `static/`: Client-side utilities
   - `security-utils.js`: XSS prevention utilities
 - `keys/`: Runtime directory for message storage

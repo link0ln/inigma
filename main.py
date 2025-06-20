@@ -24,6 +24,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Template builder function
+def build_template_from_modular(template_name):
+    """Build template from modular components"""
+    template_path = f"templates-modular/pages/{template_name}"
+    
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template not found: {template_path}")
+    
+    with open(template_path, 'r') as f:
+        content = f.read()
+    
+    # Process {{> filename }} includes
+    import re
+    def replace_include(match):
+        filename = match.group(1).strip()
+        
+        # Determine file type and directory
+        if filename.endswith('.css'):
+            file_path = f"templates-modular/styles/{filename}"
+        elif filename.endswith('.js'):
+            file_path = f"templates-modular/scripts/{filename}"
+        else:
+            # HTML component
+            file_path = f"templates-modular/components/{filename}.html"
+        
+        if not os.path.exists(file_path):
+            logger.warning(f"Include file not found: {file_path}")
+            return f"<!-- Missing: {filename} -->"
+        
+        with open(file_path, 'r') as f:
+            return f.read()
+    
+    # Replace all {{> filename }} patterns
+    content = re.sub(r'\{\{>\s*([^}]+)\s*\}\}', replace_include, content)
+    
+    return content
+
 app = FastAPI(title="Inigma - Secure Message Sharing")
 
 # Configure CORS with target domain restrictions
@@ -238,8 +275,7 @@ async def startup_event():
 async def index():
     """Serve main page"""
     logger.info("Serving index page")
-    with open("templates/index.html", "r") as f:
-        content = f.read()
+    content = build_template_from_modular("index.html")
     
     response = HTMLResponse(content)
     return add_security_headers(response)
@@ -248,8 +284,7 @@ async def index():
 async def view_page():
     """Serve view page"""
     logger.info("Serving view page")
-    with open("templates/view.html", "r") as f:
-        content = f.read()
+    content = build_template_from_modular("view.html")
     
     response = HTMLResponse(content)
     return add_security_headers(response)
