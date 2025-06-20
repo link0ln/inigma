@@ -793,8 +793,20 @@ async function handleDeleteSecret(body, env, request) {
       });
     }
     
-    // Check if user owns this secret
-    if (data.uid !== uid) {
+    // Check if user owns this secret (owner) or created it (pending)
+    if (data.uid !== '' && data.uid !== uid) {
+      // Secret is owned by someone else
+      return new Response(JSON.stringify({
+        status: 'failed',
+        message: 'Access denied',
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request),
+        },
+      });
+    } else if (data.uid === '' && data.creator_uid !== uid) {
+      // Secret is pending and user is not the creator
       return new Response(JSON.stringify({
         status: 'failed',
         message: 'Access denied',

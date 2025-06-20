@@ -637,6 +637,17 @@
                     // Load secrets on init
                     this.loadSecrets();
                     this.loadPendingSecrets();
+                    
+                    // Watch for modal close to update lists
+                    this.$watch('showModal', (newValue, oldValue) => {
+                        if (oldValue === true && newValue === false) {
+                            // Modal was closed - reload lists and clear form
+                            this.message = '';
+                            this.customName = '';
+                            this.loadSecrets();
+                            this.loadPendingSecrets();
+                        }
+                    });
                 },
                 
                 async processMessage() {
@@ -862,10 +873,14 @@
                         const data = await response.json();
                         
                         if (response.ok && data.status === 'success') {
-                            // Remove secret from the list
-                            const index = this.secrets.findIndex(s => s.id === secret.id);
-                            if (index !== -1) {
-                                this.secrets.splice(index, 1);
+                            // Remove secret from both lists
+                            const secretsIndex = this.secrets.findIndex(s => s.id === secret.id);
+                            if (secretsIndex !== -1) {
+                                this.secrets.splice(secretsIndex, 1);
+                            }
+                            const pendingIndex = this.pendingSecrets.findIndex(s => s.id === secret.id);
+                            if (pendingIndex !== -1) {
+                                this.pendingSecrets.splice(pendingIndex, 1);
                             }
                             
                             this.toastMessage = 'Secret deleted successfully!';

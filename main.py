@@ -559,9 +559,14 @@ async def delete_secret(request: DeleteSecretRequest):
         logger.error(f"Invalid JSON in file {request.view}")
         return {"status": "failed", "message": "Invalid secret data"}
     
-    # Check if user owns this secret
-    if data.get("uid") != request.uid:
-        logger.warning(f"Access denied for secret deletion {request.view}")
+    # Check if user owns this secret (owner) or created it (pending)
+    if data.get("uid") != "" and data.get("uid") != request.uid:
+        # Secret is owned by someone else
+        logger.warning(f"Access denied for secret deletion {request.view} - owned by different user")
+        return {"status": "failed", "message": "Access denied"}
+    elif data.get("uid") == "" and data.get("creator_uid") != request.uid:
+        # Secret is pending and user is not the creator
+        logger.warning(f"Access denied for secret deletion {request.view} - not the creator")
         return {"status": "failed", "message": "Access denied"}
     
     # Delete the file
