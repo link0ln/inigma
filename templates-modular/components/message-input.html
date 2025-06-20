@@ -1,0 +1,70 @@
+<!-- Message Input -->
+<div class="glass-morphism rounded-2xl p-8 mb-8 fade-in">
+    <div class="mb-6">
+        <label for="message" class="block text-lg font-semibold mb-3">
+            <i class="fas fa-envelope mr-2"></i>Your Secure Message
+        </label>
+        <textarea 
+            id="message"
+            x-model="message"
+            class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all"
+            rows="8"
+            placeholder="Enter your confidential message here..."
+        ></textarea>
+    </div>
+
+    <!-- Form Settings -->
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <!-- Custom Name and Create Button Row -->
+        <div>
+            <label for="customName" class="block text-lg font-semibold mb-3">
+                <i class="fas fa-tag mr-2"></i>Custom Name (Optional)
+            </label>
+            <input 
+                type="text"
+                id="customName"
+                x-model="customName"
+                @input="customName = SecurityUtils.sanitizeCustomName($event.target.value)"
+                class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all"
+                placeholder="Give your secret a memorable name..."
+                maxlength="100"
+            >
+        </div>
+        
+        <!-- Create Button aligned to the right -->
+        <div class="flex items-end">
+            <button 
+                @click="processMessage()"
+                :disabled="!message || processing"
+                class="w-full px-6 py-3 bg-green-500/30 hover:bg-green-500/50 disabled:bg-white/10 rounded-lg font-semibold transition-all transform hover:scale-105 disabled:scale-100"
+            >
+                <span x-show="!processing">
+                    <i class="fas fa-shield-alt mr-2"></i>Create Secure Link
+                </span>
+                <span x-show="processing">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Processing...
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <!-- TTL Settings -->
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div>
+            <label for="ttl" class="block text-lg font-semibold mb-3">
+                <i class="fas fa-clock mr-2"></i>Message Lifetime (days)
+            </label>
+            <input 
+                type="number" 
+                id="ttl"
+                x-model="ttl"
+                min="0"
+                class="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/40"
+                placeholder="0 for permanent"
+            >
+            <p class="text-xs mt-1 opacity-70">0 = permanent storage</p>
+        </div>
+        <!-- Empty column to maintain grid layout -->
+        <div></div>
+    </div>
+</div>

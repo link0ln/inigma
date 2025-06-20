@@ -1,0 +1,66 @@
+<!-- Success Modal -->
+<div 
+    x-show="showModal" 
+    x-transition
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    @click.self="showModal = false"
+>
+    <div class="glass-morphism rounded-2xl p-8 max-w-2xl w-full mx-4 fade-in">
+        <h3 class="text-2xl font-bold mb-6">
+            <i class="fas fa-check-circle text-green-400 mr-2"></i>Secure Link Created!
+        </h3>
+        
+        <div class="space-y-4">
+            <!-- Full Link -->
+            <div class="bg-white/10 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">Full Link (with key):</span>
+                    <button 
+                        @click="copyToClipboard(links.full)"
+                        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                    >
+                        <i class="fas fa-copy mr-1"></i>Copy
+                    </button>
+                </div>
+                <p class="text-sm break-all font-mono opacity-80" x-text="links.full"></p>
+            </div>
+
+            <!-- Link without key -->
+            <div class="bg-white/10 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">Link Only:</span>
+                    <button 
+                        @click="copyToClipboard(links.noKey)"
+                        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                    >
+                        <i class="fas fa-copy mr-1"></i>Copy
+                    </button>
+                </div>
+                <p class="text-sm break-all font-mono opacity-80" x-text="links.noKey"></p>
+            </div>
+
+            <!-- Key only -->
+            <div class="bg-white/10 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">Decryption Key:</span>
+                    <button 
+                        @click="copyToClipboard(links.keyOnly)"
+                        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                    >
+                        <i class="fas fa-copy mr-1"></i>Copy
+                    </button>
+                </div>
+                <p class="text-sm break-all font-mono opacity-80" x-text="links.keyOnly"></p>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button 
+                @click="showModal = false; message = ''; customName = ''; loadSecrets(); loadPendingSecrets()"
+                class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
+            >
+                Close
+            </button>
+        </div>
+    </div>
+</div>

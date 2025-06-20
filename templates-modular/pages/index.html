@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+{{> head }}
+<style>
+{{> main.css }}
+</style>
+<script>
+{{> security-utils.js }}
+</script>
+<body class="gradient-bg min-h-screen text-white">
+    <div class="container mx-auto px-4 py-8" x-data="app()">
+        {{> header }}
+
+        <!-- Main Content -->
+        <div class="max-w-4xl mx-auto">
+            {{> message-input }}
+            {{> success-modal }}
+            {{> credentials-section }}
+            {{> secrets-list }}
+            {{> pending-secrets }}
+            {{> features }}
+        </div>
+
+        {{> toast }}
+    </div>
+
+    <script>
+        {{> crypto-functions.js }}
+        {{> main-app.js }}
+    </script>
+</body>
+</html>
