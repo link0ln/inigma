@@ -1,150 +1,107 @@
-## Project Overview
+# Inigma
 
 Inigma is a secure message sharing application that allows users to send private information safely with end-to-end encryption. The application features client-side AES encryption, TTL-based message expiration, user ownership controls, custom naming, and automatic cleanup of old messages.
 
-## Architecture
+## Features
 
-### Dual Deployment Options
+- **End-to-End Encryption**: Client-side AES-256-GCM encryption using Web Crypto API
+- **Message Expiration**: Automatic TTL-based message cleanup
+- **User Ownership**: Credential-based message ownership and management
+- **Custom Names**: Optional custom names for better organization
+- **Secure Communication**: HTTPS with nginx proxy and security headers
+- **Responsive Design**: Mobile-friendly interface
+- **Auto-Cleanup**: Removes expired messages automatically
 
-The codebase supports two deployment architectures:
+## Quick Start
 
-1. **Python/FastAPI Backend** (`main.py`)
-   - FastAPI application with file-based storage
-   - Uses local filesystem (`keys/` directory) for message storage
-   - Runs on Python 3.11 with uvicorn
-   - Supports HTTPS via nginx proxy with self-signed certificates
-
-2. **Cloudflare Workers** (`cloudflare-workers/`)
-   - Serverless edge deployment 
-   - R2 Object Storage for message persistence
-   - Global edge network distribution
-   - Domain: inigma.idone.su
-
-### Core Components
-
-- **Backend API**: REST endpoints for create/view/update/delete operations
-- **Storage Layer**: File system (Python) or R2 buckets (Workers)
-- **Frontend**: Static HTML with client-side JavaScript encryption using Web Crypto API
-- **Message Model**: JSON structure with encryption metadata (iv, salt, TTL, owner)
-- **User Management**: Local credential storage with secret ownership and management
-
-## Development Commands
-
-### Python/FastAPI Version
+### Using Docker Compose (Recommended)
 
 ```bash
-# Install dependencies
+# Clone and navigate to the project
+git clone <repository-url>
+cd inigma
+
+# Start the application
+docker-compose up --build -d
+
+# Access the application
+# HTTPS: https://localhost:8443
+# HTTP: http://localhost:8080 (redirects to HTTPS)
+```
+
+### Development Mode
+
+```bash
+# Install Python dependencies
 pip install -r requirements.txt
 
 # Run development server
 python main.py
-# Server runs on http://localhost:8000
-
-# Build and run with Docker
-docker build -t inigma .
-docker run -p 8000:8000 inigma
-
-# Standard deployment
-docker-compose up -d
-# Accessible at http://localhost:8585
-
-# HTTPS deployment with nginx and self-signed certificates
-docker-compose -f docker-compose-nginx.yaml up --build -d
-# Accessible at:
-# - HTTPS: https://localhost:8443
-# - HTTP redirect: http://localhost:8080 -> https://localhost:8443
+# Access at http://localhost:8000
 ```
 
-### Cloudflare Workers Version
+### Environment Configuration
 
 ```bash
-# Navigate to cloudflare-workers directory
-cd cloudflare-workers/
+# Copy example environment file
+cp .env.example .env
 
-# Quick deploy (recommended)
-./deploy.sh production
-
-# Or manual steps:
-# Install dependencies
-npm install
-
-# Build project
-npm run build
-
-# Create R2 bucket
-wrangler r2 bucket create inigma-storage
-
-# Deploy to production
-npm run deploy:production
-
-# View logs
-./dev.sh logs
-
-# Local development
-./dev.sh test
+# Edit environment variables as needed
+# DOMAIN - Domain for generated links (default: localhost:8443)
+# CORS_ORIGINS - Allowed CORS origins (default: https://localhost:8443)
 ```
 
-**Production URL**: https://inigma.idone.su
+## Architecture
 
-### Kubernetes Deployment
+Inigma supports two deployment architectures:
 
-```bash
-# Deploy using Helm
-helm install inigma ./helm/
+### 1. Docker Deployment (Recommended for Self-Hosting)
 
-# Update deployment
-helm upgrade inigma ./helm/
+- **FastAPI Backend**: REST API with file-based storage
+- **Nginx Proxy**: HTTPS termination with self-signed certificates
+- **Client-Side Encryption**: Web Crypto API for AES encryption
+- **File Storage**: Local filesystem storage in `keys/` directory
+
+#### Network Architecture
+
+```
+Internet → Nginx (8080/8443) → Internal Network → Inigma App (8000)
 ```
 
-## Key Features
+- **External Access**: Only nginx is exposed to the internet
+- **Internal Communication**: App runs on internal Docker network
+- **SSL Termination**: Nginx handles HTTPS with self-signed certificates
 
-### Message Management
-- **Create Messages**: End-to-end encrypted messages with custom TTL
-- **Custom Names**: Optional custom names for better organization
-- **My Secrets**: List and manage all user-owned messages
-- **Message Ownership**: Messages can be claimed by users with credentials
-- **Delete Messages**: Users can delete their own messages
-- **Auto-Expiration**: Messages automatically expire based on TTL
+### 2. Cloudflare Workers Deployment (Serverless)
 
-### Security Features
-- **Client-Side Encryption**: AES-256-GCM encryption using Web Crypto API
-- **HTTPS Support**: Self-signed certificates for secure communication
-- **Content Security Policy**: Strict CSP headers for XSS protection
-- **Input Sanitization**: All user inputs are sanitized and validated
-- **Rate Limiting**: Client-side rate limiting for API requests
-- **Secure Headers**: HSTS, X-Frame-Options, X-Content-Type-Options
+- **Edge Runtime**: Deployed on Cloudflare's global edge network
+- **R2 Storage**: Object storage for encrypted messages
+- **Custom Domain**: Can be deployed on custom domains
+- **Global CDN**: Automatic global distribution and caching
 
-### User Experience
-- **Credential Management**: Auto-generated or custom user credentials
-- **Copy to Clipboard**: Easy copying of links and credentials
-- **Responsive Design**: Mobile-friendly interface with glassmorphism design
-- **Toast Notifications**: User feedback for all actions
-- **Pagination**: Efficient browsing of large secret lists
+#### Cloudflare Architecture
 
-## Technical Details
+```
+Internet → Cloudflare Edge → Worker Runtime → R2 Storage
+```
 
-### Message Lifecycle
-1. Client generates AES key and encrypts message using Web Crypto API
-2. Server stores encrypted data with TTL and access controls
-3. Users can claim ownership of messages with their credentials
-4. Messages expire automatically based on TTL (default 30 days)
-5. Cleanup process removes messages older than 50 days
+**Production Instance**: [https://inigma.idone.su](https://inigma.idone.su)
+
+For detailed Cloudflare Workers deployment instructions, see [`cloudflare-workers/README.md`](cloudflare-workers/README.md).
 
 ### Security Model
-- All encryption/decryption happens client-side using Web Crypto API
+
+- All encryption/decryption happens client-side
 - Server never sees plaintext content
-- Messages can be bound to specific user IDs for access control
-- HTTPS required for Web Crypto API functionality
-- CSP headers prevent XSS attacks
-- Input validation and sanitization on both client and server
+- Messages can be bound to user credentials
+- HTTPS required for Web Crypto API
+- Strict Content Security Policy headers
+- Input validation and sanitization
 
-### Storage Structure
-- Messages stored as JSON files with random 25-character filenames
-- Contains: encrypted_message, iv, salt, TTL, uid, custom_name
-- User credentials stored in localStorage
-- Automatic cleanup removes expired files
+## API Reference
 
-### API Endpoints
+### Endpoints
+
 - `POST /api/create` - Create new encrypted message
 - `POST /api/view` - View message (requires credentials if owned)
 - `POST /api/update` - Claim ownership of message
@@ -153,50 +110,188 @@ helm upgrade inigma ./helm/
 - `POST /api/delete-secret` - Delete user's message
 - `GET /health` - Health check endpoint
 
-### Environment Configuration
-- `DOMAIN`: Sets the base URL for generated message links
-- `PORT`: Server port (default 8000)
-- `CORS_ORIGINS`: Allowed CORS origins (supports HTTPS domains)
-- For Workers: Configure domain in `wrangler.toml`
+### Message Structure
+
+Messages are stored as JSON files with the following structure:
+
+```json
+{
+  "encrypted_message": "base64-encoded-encrypted-data",
+  "iv": "base64-encoded-initialization-vector",
+  "salt": "base64-encoded-salt",
+  "ttl": "2024-12-31T23:59:59",
+  "uid": "user-credential-hash",
+  "custom_name": "Optional custom name"
+}
+```
+
+## Deployment Options
+
+### 1. Docker Compose (Recommended for Self-Hosting)
+
+The main deployment method using nginx proxy:
+
+```bash
+docker-compose up --build -d
+```
+
+**Services:**
+- `inigma-app`: FastAPI application (internal network only)
+- `inigma-nginx`: Nginx proxy with HTTPS (exposed ports 8080, 8443)
+
+**Access:**
+- HTTPS: https://localhost:8443
+- HTTP: http://localhost:8080 (redirects to HTTPS)
+
+### 2. Cloudflare Workers (Serverless)
+
+For global edge deployment with automatic scaling:
+
+```bash
+cd cloudflare-workers/
+npm install
+npm run build
+npm run deploy:production
+```
+
+**Benefits:**
+- Global edge network deployment
+- Automatic scaling and caching
+- R2 object storage
+- Custom domain support
+- Zero server maintenance
+
+**Production URL**: https://inigma.idone.su
+
+See [`cloudflare-workers/README.md`](cloudflare-workers/README.md) for detailed instructions.
+
+### 3. Single Container (Development)
+
+For development or simple deployments:
+
+```bash
+docker build -t inigma .
+docker run -p 8000:8000 -v $(pwd)/keys:/app/keys inigma
+```
+
+### 4. Kubernetes (Advanced)
+
+Using Helm charts for Kubernetes deployment:
+
+```bash
+helm install inigma ./helm/
+helm upgrade inigma ./helm/
+```
 
 ## File Structure
 
-- `main.py`: Complete FastAPI application with all API endpoints
-- `templates-modular/`: Modular HTML templates for web interface
-  - `pages/`: Main page templates
-  - `components/`: Reusable HTML components
-  - `scripts/`: JavaScript modules
-  - `styles/`: CSS modules
-- `static/`: Client-side utilities
-  - `security-utils.js`: XSS prevention utilities
-- `keys/`: Runtime directory for message storage
-- `docker-compose.yaml`: Standard Docker deployment
-- `docker-compose-nginx.yaml`: HTTPS deployment with nginx
-- `Dockerfile.nginx`: Nginx container with self-signed certificates
-- `nginx.conf`: Nginx configuration with SSL and security headers
-- `cloudflare-workers/`: Complete Workers implementation with R2 storage
-- `helm/`: Kubernetes deployment manifests
+```
+inigma/
+├── main.py                 # FastAPI application
+├── requirements.txt        # Python dependencies
+├── Dockerfile             # Application container
+├── Dockerfile.nginx       # Nginx container
+├── docker-compose.yaml    # Production deployment
+├── nginx.conf             # Nginx configuration
+├── .env.example           # Environment variables template
+├── keys/                  # Message storage directory
+├── static/                # Static assets
+├── templates-modular/     # Modular HTML templates
+│   ├── pages/            # Main page templates
+│   ├── components/       # Reusable components
+│   ├── scripts/          # JavaScript modules
+│   └── styles/           # CSS modules
+├── cloudflare-workers/   # Alternative Cloudflare Workers deployment
+└── helm/                 # Kubernetes deployment manifests
+```
 
 ## Security Considerations
 
-### Web Crypto API Requirements
-- **HTTPS Only**: Web Crypto API requires secure context (HTTPS or localhost)
-- **Browser Support**: Modern browsers support required for AES-GCM encryption
-- **Self-Signed Certificates**: Included nginx setup generates certificates automatically
+### Encryption
+- **Algorithm**: AES-256-GCM with PBKDF2 key derivation
+- **Client-Side Only**: All encryption/decryption in browser
+- **Key Management**: Keys never transmitted to server
+- **Salt & IV**: Unique per message for cryptographic security
 
-### Content Security Policy
-- Strict CSP prevents XSS attacks
-- Allows necessary CDN resources (Tailwind, Alpine.js)
-- Includes `'unsafe-eval'` for Alpine.js compatibility
+### HTTPS Requirements
+- **Web Crypto API**: Requires secure context (HTTPS or localhost)
+- **Self-Signed Certificates**: Nginx automatically generates certificates
+- **Browser Security**: Modern browsers required for crypto operations
 
 ### Input Validation
-- All user inputs sanitized on both client and server
-- Custom name length limited to 100 characters
-- Message ID validation with alphanumeric characters only
-- TTL validation (0-365 days)
+- Server-side validation for all inputs
+- Client-side sanitization to prevent XSS
+- Message ID format validation
+- TTL range validation (0-365 days)
+- Custom name length limits
 
-## Browser Compatibility
+### Content Security Policy
+- Strict CSP headers prevent code injection
+- Allowlist for required external resources
+- Inline script restrictions with nonces
 
-- **Modern Browsers**: Chrome 60+, Firefox 78+, Safari 14+, Edge 79+
-- **Required APIs**: Web Crypto API, Fetch API, Local Storage
-- **JavaScript**: ES6+ features required for Alpine.js
+## Browser Support
+
+**Minimum Requirements:**
+- Chrome 60+ / Chromium-based browsers
+- Firefox 78+
+- Safari 14+
+- Edge 79+
+
+**Required APIs:**
+- Web Crypto API
+- Fetch API
+- Local Storage
+- ES6+ JavaScript features
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DOMAIN` | `localhost:8443` | Base domain for generated message links |
+| `PORT` | `8000` | Application server port |
+| `CORS_ORIGINS` | `https://localhost:8443` | Allowed CORS origins (comma-separated) |
+
+## Troubleshooting
+
+### Common Issues
+
+**SSL Certificate Warnings**
+- Expected with self-signed certificates
+- Add security exception in browser
+- For production, replace with proper SSL certificates
+
+**Web Crypto API Not Available**
+- Ensure HTTPS or localhost access
+- Check browser compatibility
+- Verify secure context requirements
+
+**Message Storage Issues**
+- Ensure `keys/` directory has write permissions
+- Check Docker volume mounts
+- Verify disk space availability
+
+### Logs
+
+```bash
+# Docker Compose logs
+docker-compose logs -f
+
+# Application logs only
+docker-compose logs -f inigma
+
+# Nginx logs only
+docker-compose logs -f nginx
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+[Add your license information here]

@@ -1,15 +1,16 @@
-version: '3.8'
-
 services:
   inigma:
     build: .
-    container_name: inigma
-    ports:
-      - "8585:8000"
+    container_name: inigma-app
+    # Убираем внешние порты - только внутренняя сеть
+    expose:
+      - "8000"
     volumes:
       - ./keys:/app/keys
     environment:
-      - DOMAIN=${DOMAIN:-localhost:8585}
+      - PORT=8000
+      - DOMAIN=${DOMAIN:-localhost:8443}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://localhost:8443}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -17,3 +18,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - inigma-network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: inigma-nginx
+    ports:
+      - "8443:443"
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - inigma
+    restart: unless-stopped
+    networks:
+      - inigma-network
+
+networks:
+  inigma-network:
+    driver: bridge

@@ -1,131 +1,255 @@
 # Inigma - Cloudflare Workers Deployment
 
-Этот проект адаптирует Inigma для развертывания на Cloudflare Workers с использованием R2 для хранения данных.
+This directory contains the Cloudflare Workers implementation of Inigma, a secure message sharing application with end-to-end encryption. This serverless deployment leverages Cloudflare's global edge network and R2 object storage.
 
-## Подготовка к деплою
+## Features
 
-### 1. Установка Wrangler CLI
+- **Global Edge Deployment**: Runs on Cloudflare's worldwide network
+- **R2 Object Storage**: Encrypted messages stored in Cloudflare R2
+- **Automatic Scaling**: Serverless architecture with built-in scaling
+- **Custom Domain Support**: Deploy on your own domain
+- **Zero Maintenance**: No server management required
+- **Same Security**: Identical client-side encryption as the main app
+
+## Production Instance
+
+🌐 **Live Demo**: [https://inigma.idone.su](https://inigma.idone.su)
+
+## Quick Start
+
+### Prerequisites
+
+- Cloudflare account with Workers and R2 enabled
+- Node.js 18+ installed
+- Wrangler CLI installed globally
+
+### 1. Install Wrangler CLI
 
 ```bash
 npm install -g wrangler
 ```
 
-### 2. Аутентификация в Cloudflare
+### 2. Authenticate with Cloudflare
 
 ```bash
 wrangler login
 ```
 
-### 3. Создание R2 bucket
+### 3. Create R2 Bucket
 
 ```bash
 wrangler r2 bucket create inigma-storage
 ```
 
-### 4. (Опционально) Создание KV namespace для аналитики
-
-```bash
-wrangler kv:namespace create "INIGMA_KV" --env production
-```
-
-Обновите `wrangler.toml` с полученным namespace ID.
-
-## Настройка Custom Domain
-
-### 1. В Cloudflare Dashboard
-
-1. Перейдите в раздел **Workers & Pages**
-2. Выберите ваш worker `inigma`
-3. Откройте вкладку **Settings** → **Triggers**
-4. В разделе **Custom Domains** нажмите **Add Custom Domain**
-5. Введите `inigma.idone.su`
-6. Следуйте инструкциям для настройки DNS
-
-### 2. DNS записи
-
-Добавьте CNAME запись в DNS настройках домена `idone.su`:
-
-```
-CNAME inigma inigma.workers.dev
-```
-
-## Деплой
-
-### 1. Установка зависимостей
+### 4. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Сборка проекта
-
-```bash
-npm run build
-```
-
-### 3. Деплой в production
+### 5. Deploy to Production
 
 ```bash
 npm run deploy:production
 ```
 
-## Структура проекта
+## Development
 
-```
-cloudflare-workers/
-├── src/
-│   └── index.js          # Основной код worker
-├── build/                # Сгенерированные файлы (создается при сборке)
-├── wrangler.toml         # Конфигурация Cloudflare Workers
-├── package.json          # Зависимости проекта
-├── build.js              # Скрипт сборки
-└── README.md             # Эта инструкция
+### Local Development
+
+```bash
+# Build and start local development server
+npm run dev
+
+# Access at http://localhost:8787
 ```
 
-## Функциональность
+### Build Only
 
-Worker полностью воспроизводит функционал оригинального приложения:
+```bash
+npm run build
+```
 
-- ✅ Создание зашифрованных сообщений
-- ✅ Просмотр сообщений с проверкой доступа
-- ✅ Обновление владельца сообщения
-- ✅ TTL и автоматическое удаление
-- ✅ Клиентское шифрование AES-256-GCM
-- ✅ Автоматическая очистка старых сообщений (cron)
-
-## Отличия от оригинальной версии
-
-1. **Хранилище**: Вместо локальных файлов используется R2
-2. **Очистка**: Выполняется по расписанию через Cron Triggers
-3. **Статические файлы**: Встроены в worker code
-4. **CORS**: Предварительно настроен для работы с фронтендом
-
-## Мониторинг и логи
-
-Просмотр логов:
+### View Logs
 
 ```bash
 wrangler tail --env production
 ```
 
-## Troubleshooting
+## Configuration
 
-### Проблема с CORS
+### Environment Setup
 
-Если возникают проблемы с CORS, проверьте настройки в `src/index.js`:
+The deployment uses `wrangler.toml` for configuration. Key settings:
 
-```javascript
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+```toml
+[env.production]
+name = "inigma"
+r2_buckets = [
+  { binding = "STORAGE", bucket_name = "inigma-storage" }
+]
+
+[env.production.triggers]
+crons = ["0 2 * * *"]  # Daily cleanup at 2 AM UTC
 ```
 
-### Проблемы с R2
+### Custom Domain Setup
 
-Убедитесь, что R2 bucket создан и правильно настроен в `wrangler.toml`.
+1. **In Cloudflare Dashboard:**
+   - Go to Workers & Pages
+   - Select your `inigma` worker
+   - Navigate to Settings → Triggers
+   - Add Custom Domain: `your-domain.com`
 
-### Проблемы с доменом
+2. **DNS Configuration:**
+   ```
+   CNAME inigma your-worker.workers.dev
+   ```
 
-Проверьте настройки DNS и убедитесь, что домен проксируется через Cloudflare.
+## Project Structure
+
+```
+cloudflare-workers/
+├── src/
+│   ├── index.js              # Main worker entry point
+│   ├── constants/
+│   │   └── config.js         # Configuration constants
+│   ├── handlers/
+│   │   ├── get.js           # GET request handlers
+│   │   ├── post.js          # POST request handlers
+│   │   ├── options.js       # CORS preflight handlers
+│   │   └── messages/        # Message-specific handlers
+│   │       ├── create.js    # Create message endpoint
+│   │       ├── view.js      # View message endpoint
+│   │       ├── list.js      # List user messages
+│   │       ├── update.js    # Update message ownership
+│   │       ├── delete.js    # Delete message
+│   │       ├── customName.js # Update custom name
+│   │       └── pending.js   # Pending messages
+│   └── utils/
+│       ├── cors.js          # CORS utilities
+│       ├── crypto.js        # Cryptographic functions
+│       ├── storage.js       # R2 storage operations
+│       └── validation.js    # Input validation
+├── build/                   # Generated files (created during build)
+├── wrangler.toml           # Cloudflare Workers configuration
+├── package.json            # Project dependencies
+├── build.js                # Build script
+├── tsconfig.json           # TypeScript configuration
+└── README.md               # This file
+```
+
+## API Endpoints
+
+The Workers implementation provides the same API as the main application:
+
+- `GET /` - Serve the main application interface
+- `GET /view/{id}` - Serve the message view interface
+- `POST /api/create` - Create new encrypted message
+- `POST /api/view` - View message (with access control)
+- `POST /api/update` - Claim message ownership
+- `POST /api/list-secrets` - List user's messages with pagination
+- `POST /api/update-custom-name` - Update message custom name
+- `POST /api/delete-secret` - Delete user's message
+- `POST /api/pending-secrets` - List pending (unowned) messages
+- `GET /health` - Health check endpoint
+
+## Features
+
+### Core Functionality
+- ✅ End-to-end encryption (AES-256-GCM)
+- ✅ Message TTL and automatic expiration
+- ✅ User ownership and access control
+- ✅ Custom message names
+- ✅ Pagination for message lists
+- ✅ Message deletion
+
+### Storage & Performance
+- ✅ R2 object storage for scalability
+- ✅ Automatic cleanup via cron triggers
+- ✅ Global edge caching
+- ✅ Optimized for low latency
+
+### Security
+- ✅ Same client-side encryption as main app
+- ✅ CORS properly configured
+- ✅ Input validation and sanitization
+- ✅ Secure headers and CSP
+
+## Differences from Docker Deployment
+
+| Feature | Docker Deployment | Cloudflare Workers |
+|---------|------------------|-------------------|
+| **Storage** | Local filesystem | R2 Object Storage |
+| **Cleanup** | File-based cron | Scheduled triggers |
+| **Scaling** | Manual/K8s | Automatic |
+| **Geographic Distribution** | Single location | Global edge network |
+| **Maintenance** | Server management required | Zero maintenance |
+| **SSL** | Self-signed/manual | Automatic SSL |
+| **Cost** | Server costs | Pay-per-request |
+
+## Monitoring & Debugging
+
+### View Real-time Logs
+
+```bash
+wrangler tail --env production
+```
+
+### Check Deployment Status
+
+```bash
+wrangler deployments list --env production
+```
+
+### Analytics
+
+Monitor usage and performance in the Cloudflare dashboard:
+- Workers & Pages → Your Worker → Analytics
+
+## Troubleshooting
+
+### Common Issues
+
+**CORS Errors**
+- Verify CORS headers in `src/utils/cors.js`
+- Ensure the domain is properly configured
+
+**R2 Storage Errors**
+- Check that the R2 bucket exists and is properly configured
+- Verify R2 binding in `wrangler.toml`
+
+**Deployment Failures**
+- Ensure you're authenticated with Wrangler
+- Check the build output for errors
+- Verify all dependencies are installed
+
+**Performance Issues**
+- Monitor cold start times in Analytics
+- Consider using Workers KV for frequently accessed data
+
+### Debug Mode
+
+Enable debug logging by setting environment variables:
+
+```bash
+# Local development with debug
+DEBUG=true npm run dev
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Test locally with `npm run dev`
+4. Deploy to a test environment
+5. Submit a pull request
+
+## Support
+
+For issues specific to Cloudflare Workers deployment:
+1. Check this README and troubleshooting section
+2. Review Cloudflare Workers documentation
+3. Open an issue in the main repository
+
+For general Inigma questions, see the main [README.md](../README.md).
