@@ -455,6 +455,9 @@
         }
 
         async function getKeyMaterial(password) {
+            if (!window.crypto || !window.crypto.subtle) {
+                throw new Error('Crypto API not available. Please use HTTPS or localhost.');
+            }
             const enc = new TextEncoder();
             return window.crypto.subtle.importKey(
                 "raw",
@@ -580,7 +583,11 @@
                         this.showModal = true;
                     } catch (error) {
                         console.error('Error:', error);
-                        alert('Failed to create secure link');
+                        if (error.message.includes('Crypto API not available')) {
+                            alert('Crypto API not available. Please use HTTPS or access via localhost.');
+                        } else {
+                            alert('Failed to create secure link: ' + error.message);
+                        }
                     } finally {
                         this.processing = false;
                     }
