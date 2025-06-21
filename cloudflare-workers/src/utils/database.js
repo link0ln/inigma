@@ -3,7 +3,7 @@
  */
 
 import { DEFAULT_CLEANUP_DAYS } from '../constants/config.js';
-import { getTimestamp } from './validation.js';
+import { getTimestamp, calculateTimeRemaining } from './validation.js';
 
 /**
  * Store message data in D1
@@ -175,18 +175,15 @@ export async function listUserSecrets(env, uid, page = 1, perPage = 10) {
     const results = await stmt.bind(uid, currentTime, perPage, offset).all();
     
     const secrets = results.results.map(row => {
-      // Calculate days remaining
-      let daysRemaining;
-      if (row.ttl === 9999999999) {
-        daysRemaining = -1; // Permanent
-      } else {
-        daysRemaining = Math.max(0, Math.floor((row.ttl - currentTime) / (24 * 60 * 60)));
-      }
+      // Calculate time remaining with smart formatting
+      const timeRemaining = calculateTimeRemaining(row.ttl, currentTime);
       
       return {
         id: row.id,
         custom_name: row.custom_name || "",
-        days_remaining: daysRemaining
+        days_remaining: timeRemaining.value,
+        time_remaining_display: timeRemaining.display,
+        time_remaining_type: timeRemaining.type
       };
     });
     
@@ -231,18 +228,15 @@ export async function listPendingSecrets(env, creatorUid, page = 1, perPage = 10
     const results = await stmt.bind(creatorUid, currentTime, perPage, offset).all();
     
     const secrets = results.results.map(row => {
-      // Calculate days remaining
-      let daysRemaining;
-      if (row.ttl === 9999999999) {
-        daysRemaining = -1; // Permanent
-      } else {
-        daysRemaining = Math.max(0, Math.floor((row.ttl - currentTime) / (24 * 60 * 60)));
-      }
+      // Calculate time remaining with smart formatting
+      const timeRemaining = calculateTimeRemaining(row.ttl, currentTime);
       
       return {
         id: row.id,
         custom_name: row.custom_name || "",
-        days_remaining: daysRemaining
+        days_remaining: timeRemaining.value,
+        time_remaining_display: timeRemaining.display,
+        time_remaining_type: timeRemaining.type
       };
     });
     

@@ -75,3 +75,50 @@ export function isValidTtl(ttl) {
 export function getTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
+
+/**
+ * Calculate time remaining for a secret with smart formatting
+ * Returns object with time remaining and formatted display string
+ */
+export function calculateTimeRemaining(ttl, currentTime) {
+  if (ttl === 9999999999) {
+    return {
+      value: -1,
+      display: "Permanent",
+      type: "permanent"
+    };
+  }
+  
+  const secondsRemaining = Math.max(0, ttl - currentTime);
+  const hoursRemaining = Math.floor(secondsRemaining / (60 * 60));
+  const daysRemaining = Math.floor(secondsRemaining / (24 * 60 * 60));
+  
+  if (secondsRemaining === 0) {
+    return {
+      value: 0,
+      display: "Expired",
+      type: "expired"
+    };
+  }
+  
+  if (daysRemaining >= 1) {
+    return {
+      value: daysRemaining,
+      display: `${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`,
+      type: "days"
+    };
+  } else if (hoursRemaining >= 1) {
+    return {
+      value: hoursRemaining,
+      display: `${hoursRemaining} hour${hoursRemaining === 1 ? '' : 's'}`,
+      type: "hours"
+    };
+  } else {
+    const minutesRemaining = Math.max(1, Math.floor(secondsRemaining / 60));
+    return {
+      value: minutesRemaining,
+      display: `${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}`,
+      type: "minutes"
+    };
+  }
+}
