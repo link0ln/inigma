@@ -157,6 +157,9 @@ globalThis.viewHTML = viewHTML;
 globalThis.fallbackCryptoJS = fallbackCryptoJS;
 `;
 
+// Replace template placeholder with actual templates
+mainWorkerCode = mainWorkerCode.replace('// ${TEMPLATE_PLACEHOLDER}', templatesContent);
+
 // Combine everything
 const finalCode = `/**
  * Inigma - Secure Message Sharing Service
@@ -165,8 +168,6 @@ const finalCode = `/**
  */
 
 ${bundledModules}
-
-${templatesContent}
 
 ${mainWorkerCode}`;
 

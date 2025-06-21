@@ -9,6 +9,8 @@ function app() {
         showToast: false,
         toastMessage: 'Copied to clipboard!',
         showCredentials: false,
+        showDeleteModal: false,
+        secretToDelete: null,
         links: {
             full: '',
             noKey: '',
@@ -267,9 +269,18 @@ function app() {
         },
         
         async deleteSecret(secret) {
-            if (!confirm(`Are you sure you want to delete "${secret.custom_name || 'Untitled Secret'}"? This action cannot be undone.`)) {
-                return;
-            }
+            this.secretToDelete = secret;
+            this.showDeleteModal = true;
+        },
+        
+        cancelDelete() {
+            this.showDeleteModal = false;
+            this.secretToDelete = null;
+        },
+        
+        async confirmDelete() {
+            const secret = this.secretToDelete;
+            if (!secret) return;
             
             this.deletingSecrets[secret.id] = true;
             
@@ -299,6 +310,10 @@ function app() {
                     this.toastMessage = 'Secret deleted successfully!';
                     this.showToast = true;
                     setTimeout(() => this.showToast = false, 3000);
+                    
+                    // Close modal
+                    this.showDeleteModal = false;
+                    this.secretToDelete = null;
                 } else {
                     alert('Failed to delete secret: ' + SecurityUtils.sanitizeText(data.message || 'Unknown error'));
                 }
