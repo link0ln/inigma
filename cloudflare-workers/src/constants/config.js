@@ -16,7 +16,7 @@ export const BASE_CORS_HEADERS = {
 };
 
 // Default cleanup days for old messages
-export const DEFAULT_CLEANUP_DAYS = 50;
+export const DEFAULT_CLEANUP_DAYS = 2;
 
 // Default message TTL for permanent messages
 export const PERMANENT_TTL = 9999999999;

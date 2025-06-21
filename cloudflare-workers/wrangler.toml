@@ -15,7 +15,7 @@ database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 # Переменные окружения
 [env.production.vars]
 DOMAIN = "inigma.idone.su"
-CLEANUP_DAYS = "50"
+CLEANUP_DAYS = "2"
 
 [env.production.triggers]
 crons = ["0 2 * * *"] # Ежедневно в 2:00

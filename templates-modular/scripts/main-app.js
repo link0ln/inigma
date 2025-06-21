@@ -82,7 +82,7 @@ function app() {
                         encrypted_message: arrayBufferToBase64(encrypted),
                         iv: arrayBufferToBase64(iv),
                         salt: arrayBufferToBase64(salt),
-                        ttl: parseInt(this.ttl) || 30,
+                        ttl: parseInt(this.ttl) || 0,
                         custom_name: this.customName,
                         creator_uid: this.credentials.uid
                     })

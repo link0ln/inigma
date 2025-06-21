@@ -16,6 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 import uvicorn
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from database import DatabaseManager
 
@@ -92,6 +94,17 @@ async def security_headers_middleware(request: Request, call_next):
 
 # Initialize database
 db = DatabaseManager()
+
+# Initialize scheduler
+scheduler = AsyncIOScheduler()
+
+def cleanup_database():
+    """Background task to cleanup expired messages"""
+    try:
+        deleted_count = db.cleanup_expired_messages()
+        logger.info(f"Scheduled cleanup completed. Deleted {deleted_count} expired messages")
+    except Exception as e:
+        logger.error(f"Error during scheduled cleanup: {e}")
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -242,9 +255,31 @@ def get_timestamp() -> int:
 
 @app.on_event("startup")
 async def startup_event():
-    """Run cleanup on startup"""
+    """Run cleanup on startup and start scheduler"""
     logger.info("Application starting up")
+    
+    # Run initial cleanup
     db.cleanup_expired_messages()
+    
+    # Schedule daily cleanup at 2:00 AM
+    scheduler.add_job(
+        cleanup_database,
+        CronTrigger(hour=2, minute=0),
+        id='daily_cleanup',
+        replace_existing=True
+    )
+    
+    # Start the scheduler
+    scheduler.start()
+    logger.info("Scheduler started - daily cleanup scheduled for 2:00 AM")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown cleanup"""
+    logger.info("Application shutting down")
+    if scheduler.running:
+        scheduler.shutdown()
+        logger.info("Scheduler stopped")
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

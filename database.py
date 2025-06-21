@@ -9,6 +9,49 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
+def calculate_time_remaining(ttl: int, current_time: int) -> Dict[str, Any]:
+    """
+    Calculate time remaining for a secret with smart formatting
+    Returns object with time remaining and formatted display string
+    """
+    if ttl == 9999999999:
+        return {
+            "value": -1,
+            "display": "Permanent",
+            "type": "permanent"
+        }
+    
+    seconds_remaining = max(0, ttl - current_time)
+    hours_remaining = seconds_remaining // (60 * 60)
+    days_remaining = seconds_remaining // (24 * 60 * 60)
+    
+    if seconds_remaining == 0:
+        return {
+            "value": 0,
+            "display": "Expired",
+            "type": "expired"
+        }
+    
+    if days_remaining >= 1:
+        return {
+            "value": days_remaining,
+            "display": f"{days_remaining} day{'s' if days_remaining != 1 else ''}",
+            "type": "days"
+        }
+    elif hours_remaining >= 1:
+        return {
+            "value": hours_remaining,
+            "display": f"{hours_remaining} hour{'s' if hours_remaining != 1 else ''}",
+            "type": "hours"
+        }
+    else:
+        minutes_remaining = max(1, seconds_remaining // 60)
+        return {
+            "value": minutes_remaining,
+            "display": f"{minutes_remaining} minute{'s' if minutes_remaining != 1 else ''}",
+            "type": "minutes"
+        }
+
 class DatabaseManager:
     """SQLite database manager for Inigma messages"""
     
@@ -227,16 +270,15 @@ class DatabaseManager:
                 secrets = []
                 for row in cursor.fetchall():
                     row = dict(row)
-                    # Calculate days remaining
-                    if row['ttl'] == 9999999999:
-                        days_remaining = -1  # Permanent
-                    else:
-                        days_remaining = max(0, (row['ttl'] - current_time) // (24 * 60 * 60))
+                    # Calculate time remaining with smart formatting
+                    time_remaining = calculate_time_remaining(row['ttl'], current_time)
                     
                     secrets.append({
                         "id": row['id'],
                         "custom_name": row['custom_name'] or "",
-                        "days_remaining": days_remaining
+                        "days_remaining": time_remaining["value"],
+                        "time_remaining_display": time_remaining["display"],
+                        "time_remaining_type": time_remaining["type"]
                     })
                 
                 logger.debug(f"Found {len(secrets)} secrets for uid {uid}")
@@ -280,16 +322,15 @@ class DatabaseManager:
                 secrets = []
                 for row in cursor.fetchall():
                     row = dict(row)
-                    # Calculate days remaining
-                    if row['ttl'] == 9999999999:
-                        days_remaining = -1  # Permanent
-                    else:
-                        days_remaining = max(0, (row['ttl'] - current_time) // (24 * 60 * 60))
+                    # Calculate time remaining with smart formatting
+                    time_remaining = calculate_time_remaining(row['ttl'], current_time)
                     
                     secrets.append({
                         "id": row['id'],
                         "custom_name": row['custom_name'] or "",
-                        "days_remaining": days_remaining
+                        "days_remaining": time_remaining["value"],
+                        "time_remaining_display": time_remaining["display"],
+                        "time_remaining_type": time_remaining["type"]
                     })
                 
                 return {
