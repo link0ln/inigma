@@ -1,22 +1,460 @@
-.gradient-bg {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* Pixel Art Styling */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* {
+    box-sizing: border-box;
 }
-.glass-morphism {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+
+body {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 16px;
+    background: #000000;
+    color: #ffffff;
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 }
+
+.pixel-bg {
+    background: #000000;
+    position: relative;
+    min-height: 100vh;
+}
+
+/* Pixel noise animation */
+.pixel-bg::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 25% 25%, #ffffff 1px, transparent 1px),
+        radial-gradient(circle at 75% 75%, #ffffff 1px, transparent 1px);
+    background-size: 4px 4px;
+    background-position: 0 0, 2px 2px;
+    opacity: 0.05;
+    animation: pixelNoise 2s infinite;
+    pointer-events: none;
+    z-index: -1;
+}
+
+@keyframes pixelNoise {
+    0%, 100% { opacity: 0.05; }
+    50% { opacity: 0.1; }
+}
+
+/* Pixel borders */
+.pixel-border {
+    border: 2px solid #ffffff;
+    position: relative;
+}
+
+.pixel-border::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 2px;
+    right: 2px;
+    height: 2px;
+    background: #ffffff;
+}
+
+.pixel-border::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 2px;
+    right: 2px;
+    height: 2px;
+    background: #ffffff;
+}
+
+/* Pixel button styling */
+.pixel-btn {
+    background: #000000;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    padding: 16px 24px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+}
+
+.pixel-btn:hover {
+    background: #ffffff;
+    color: #000000;
+    transform: translate(-1px, -1px);
+    box-shadow: 2px 2px 0 #666666;
+}
+
+.pixel-btn:active {
+    transform: translate(0, 0);
+    box-shadow: none;
+}
+
+/* Pixel input styling */
+.pixel-input {
+    background: #000000;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    padding: 16px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    width: 100%;
+    resize: none;
+}
+
+.pixel-input:focus {
+    outline: none;
+    border-color: #cccccc;
+    box-shadow: 0 0 0 2px #333333;
+}
+
+.pixel-input::placeholder {
+    color: #666666;
+}
+
+/* Pixel card styling */
+.pixel-card {
+    background: #000000;
+    border: 2px solid #ffffff;
+    padding: 16px;
+    margin: 16px 0;
+    position: relative;
+}
+
+.pixel-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 8px;
+    right: 8px;
+    height: 2px;
+    background: #ffffff;
+}
+
+/* Header styling */
+.pixel-header {
+    text-align: center;
+    margin-bottom: 32px;
+    position: relative;
+}
+
+.pixel-title {
+    font-size: 32px;
+    margin-bottom: 16px;
+    text-shadow: 2px 2px 0 #333333;
+    letter-spacing: 2px;
+}
+
+.pixel-subtitle {
+    font-size: 16px;
+    color: #cccccc;
+    letter-spacing: 1px;
+}
+
+/* List styling */
+.pixel-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.pixel-list-item {
+    background: #000000;
+    border: 1px solid #666666;
+    padding: 8px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.pixel-list-item:hover {
+    border-color: #ffffff;
+    background: #111111;
+}
+
+/* Modal styling */
+.pixel-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #000000;
+    border: 2px solid #ffffff;
+    padding: 24px;
+    z-index: 1000;
+    min-width: 300px;
+}
+
+.pixel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 999;
+}
+
+/* Toast styling */
+.pixel-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #000000;
+    border: 2px solid #ffffff;
+    padding: 16px 20px;
+    z-index: 2000;
+    font-size: 14px;
+    max-width: 400px;
+    word-wrap: break-word;
+}
+
+.pixel-toast.success {
+    border-color: #00ff00;
+    background: #003300;
+}
+
+.pixel-toast.error {
+    border-color: #ff0000;
+    background: #330000;
+}
+
+.pixel-toast.info {
+    border-color: #0080ff;
+    background: #003366;
+}
+
+/* Animation classes */
 .fade-in {
-    animation: fadeIn 0.5s ease-in;
+    animation: pixelFadeIn 0.5s ease-in;
 }
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
+
+@keyframes pixelFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
 .pulse {
-    animation: pulse 2s infinite;
+    animation: pixelPulse 2s infinite;
 }
-@keyframes pulse {
+
+@keyframes pixelPulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.7; }
 }
+
+/* Additional pixel effects and utilities */
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    background: #000000;
+}
+
+::-webkit-scrollbar-track {
+    background: #000000;
+    border: 1px solid #333333;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ffffff;
+    border: 1px solid #000000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #cccccc;
+}
+
+/* Selection styling */
+::selection {
+    background: #ffffff;
+    color: #000000;
+}
+
+::-moz-selection {
+    background: #ffffff;
+    color: #000000;
+}
+
+/* Pixel glow effect for interactive elements */
+.pixel-glow {
+    text-shadow: 0 0 4px #ffffff;
+    animation: pixelGlow 2s infinite alternate;
+}
+
+@keyframes pixelGlow {
+    0% { text-shadow: 0 0 4px #ffffff; }
+    100% { text-shadow: 0 0 8px #ffffff, 0 0 12px #ffffff; }
+}
+
+/* Matrix-style background pattern */
+.pixel-bg::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(0deg, transparent 24%, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.03) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03) 76%, transparent 77%, transparent),
+        linear-gradient(90deg, transparent 24%, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.03) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03) 76%, transparent 77%, transparent);
+    background-size: 4px 4px;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Enhanced hover effects */
+.pixel-btn:hover {
+    animation: pixelGlitch 0.3s ease-in-out;
+}
+
+@keyframes pixelGlitch {
+    0% { transform: translate(0); }
+    20% { transform: translate(-1px, 1px); }
+    40% { transform: translate(1px, -1px); }
+    60% { transform: translate(-1px, -1px); }
+    80% { transform: translate(1px, 1px); }
+    100% { transform: translate(0); }
+}
+
+/* Container adjustments */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+/* Utility classes */
+.text-center {
+    text-align: center;
+}
+
+.hidden {
+    display: none;
+}
+
+.block {
+    display: block;
+}
+
+.inline-block {
+    display: inline-block;
+}
+
+.flex {
+    display: flex;
+}
+
+.grid {
+    display: grid;
+}
+
+/* Spacing utilities */
+.mb-1 { margin-bottom: 4px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.mb-6 { margin-bottom: 24px; }
+.mb-8 { margin-bottom: 32px; }
+
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mt-6 { margin-top: 24px; }
+.mt-8 { margin-top: 32px; }
+
+.p-1 { padding: 4px; }
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.p-6 { padding: 24px; }
+.p-8 { padding: 32px; }
+
+/* Width utilities */
+.w-full { width: 100%; }
+.max-w-md { max-width: 400px; }
+.max-w-lg { max-width: 500px; }
+.max-w-xl { max-width: 600px; }
+.max-w-2xl { max-width: 700px; }
+.max-w-4xl { max-width: 900px; }
+
+/* Flexbox utilities */
+.items-center { align-items: center; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.flex-1 { flex: 1; }
+
+/* Grid utilities */
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+/* Position utilities */
+.fixed { position: fixed; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+    body {
+        font-size: 14px;
+    }
+    
+    .pixel-title {
+        font-size: 28px;
+    }
+    
+    .pixel-subtitle {
+        font-size: 14px;
+    }
+    
+    .pixel-btn {
+        font-size: 12px;
+        padding: 14px 24px;
+    }
+    
+    .pixel-input {
+        font-size: 12px;
+        padding: 14px;
+    }
+}
+
+@media (min-width: 1024px) {
+    body {
+        font-size: 16px;
+    }
+    
+    .pixel-title {
+        font-size: 32px;
+    }
+    
+    .pixel-subtitle {
+        font-size: 16px;
+    }
+    
+    .pixel-btn {
+        font-size: 14px;
+        padding: 16px 28px;
+    }
+    
+    .pixel-input {
+        font-size: 14px;
+        padding: 16px;
+    }
+}
+
+/* Alpine.js cloaking */
+[x-cloak] { display: none !important; }

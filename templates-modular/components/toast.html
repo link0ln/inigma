@@ -2,7 +2,8 @@
 <div 
     x-show="showToast" 
     x-transition
-    class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg"
+    class="pixel-toast success"
+    x-cloak
 >
-    <i class="fas fa-check mr-2"></i><span x-text="SecurityUtils.safeText(toastMessage)"></span>
+    ▓ <span x-text="SecurityUtils.safeText(toastMessage)"></span> ▓
 </div>

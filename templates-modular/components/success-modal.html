@@ -2,64 +2,67 @@
 <div 
     x-show="showModal" 
     x-transition
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    class="pixel-overlay"
     @click.self="showModal = false"
 >
-    <div class="glass-morphism rounded-2xl p-8 max-w-2xl w-full mx-4 fade-in">
-        <h3 class="text-2xl font-bold mb-6">
-            <i class="fas fa-check-circle text-green-400 mr-2"></i>Secure Link Created!
+    <div class="pixel-modal fade-in" style="min-width: 400px; max-width: 600px;">
+        <h3 style="text-align: center; margin-bottom: 16px;">
+            ▓ ENCRYPTION SUCCESSFUL ▓
         </h3>
         
-        <div class="space-y-4">
+        <div style="margin-bottom: 16px;">
             <!-- Full Link -->
-            <div class="bg-white/10 rounded-lg p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="font-medium">Full Link (with key):</span>
+            <div class="pixel-border" style="padding: 8px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 12px;">FULL_LINK (WITH_KEY):</span>
                     <button 
                         @click="copyToClipboard(links.full)"
-                        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                        class="pixel-btn"
+                        style="font-size: 12px; padding: 2px 6px;"
                     >
-                        <i class="fas fa-copy mr-1"></i>Copy
+                        ▓ COPY ▓
                     </button>
                 </div>
-                <p class="text-sm break-all font-mono opacity-80" x-text="links.full"></p>
+                <p style="font-size: 12px; font-family: 'Courier New', monospace; color: #cccccc; word-break: break-all;" x-text="links.full"></p>
             </div>
 
             <!-- Link without key -->
-            <div class="bg-white/10 rounded-lg p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="font-medium">Link Only:</span>
+            <div class="pixel-border" style="padding: 8px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 12px;">LINK_ONLY:</span>
                     <button 
                         @click="copyToClipboard(links.noKey)"
-                        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                        class="pixel-btn"
+                        style="font-size: 12px; padding: 2px 6px;"
                     >
-                        <i class="fas fa-copy mr-1"></i>Copy
+                        ▓ COPY ▓
                     </button>
                 </div>
-                <p class="text-sm break-all font-mono opacity-80" x-text="links.noKey"></p>
+                <p style="font-size: 12px; font-family: 'Courier New', monospace; color: #cccccc; word-break: break-all;" x-text="links.noKey"></p>
             </div>
 
             <!-- Key only -->
-            <div class="bg-white/10 rounded-lg p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="font-medium">Decryption Key:</span>
+            <div class="pixel-border" style="padding: 8px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 12px;">DECRYPTION_KEY:</span>
                     <button 
                         @click="copyToClipboard(links.keyOnly)"
-                        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm transition-all"
+                        class="pixel-btn"
+                        style="font-size: 12px; padding: 2px 6px;"
                     >
-                        <i class="fas fa-copy mr-1"></i>Copy
+                        ▓ COPY ▓
                     </button>
                 </div>
-                <p class="text-sm break-all font-mono opacity-80" x-text="links.keyOnly"></p>
+                <p style="font-size: 12px; font-family: 'Courier New', monospace; color: #cccccc; word-break: break-all;" x-text="links.keyOnly"></p>
             </div>
         </div>
 
-        <div class="mt-6 flex justify-end">
+        <div style="text-align: center;">
             <button 
                 @click="showModal = false; message = ''; customName = ''; loadSecrets(); loadPendingSecrets()"
-                class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
+                class="pixel-btn"
             >
-                Close
+                ▓ CLOSE ▓
             </button>
         </div>
     </div>
