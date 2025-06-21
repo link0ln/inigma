@@ -12,7 +12,6 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, Form
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 import uvicorn
@@ -106,8 +105,6 @@ def cleanup_database():
     except Exception as e:
         logger.error(f"Error during scheduled cleanup: {e}")
 
-# Static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Data models
 class CreateMessageRequest(BaseModel):

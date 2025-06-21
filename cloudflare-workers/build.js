@@ -121,8 +121,8 @@ function convertToWorkerFormat(content, filePath) {
   return content;
 }
 
-// Read fallback crypto file
-const fallbackCryptoJS = fs.readFileSync(path.join(__dirname, '../static/fallback-crypto.js'), 'utf8');
+// Read crypto functions file from modular templates
+const fallbackCryptoJS = fs.readFileSync(path.join(__dirname, '../templates-modular/scripts/crypto-functions.js'), 'utf8');
 
 // Bundle all modules
 const srcDir = path.join(__dirname, 'src');
