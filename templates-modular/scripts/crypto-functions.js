@@ -38,7 +38,7 @@ async function encrypt(plaintext, salt, iv, password) {
         {
             name: "PBKDF2",
             salt: salt,
-            iterations: 100000,
+            iterations: 800000,
             hash: "SHA-256"
         },
         keyMaterial,
@@ -59,7 +59,7 @@ async function decrypt(encryptedData, salt, iv, password) {
         {
             name: "PBKDF2",
             salt: salt,
-            iterations: 100000,
+            iterations: 800000,
             hash: "SHA-256"
         },
         keyMaterial,
