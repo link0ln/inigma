@@ -8,18 +8,23 @@ function app() {
         showModal: false,
         showToast: false,
         toastMessage: 'Copied to clipboard!',
-        showCredentials: false,
         showDeleteModal: false,
         secretToDelete: null,
+        showExportKeyModal: false,
+        showImportKeyModal: false,
+        exportedSymmetricKey: '',
+        showExportedKey: false,
+        importSymmetricKey: '',
+        importingKey: false,
         links: {
             full: '',
             noKey: '',
             keyOnly: ''
         },
         credentials: {
-            uid: localStorage.getItem('uid') || generatePassword(12),
-            pass: localStorage.getItem('pass') || generatePassword(24)
+            uid: '',
         },
+        cryptoSystem: null,
         secrets: [],
         loadingSecrets: false,
         deletingSecrets: {},
@@ -38,20 +43,29 @@ function app() {
             has_more: false
         },
         
-        init() {
-            console.log('Main app init - UID:', this.credentials.uid);
-            // Save credentials if new
-            if (!localStorage.getItem('uid')) {
-                localStorage.setItem('uid', this.credentials.uid);
-                console.log('Saved new UID to localStorage:', this.credentials.uid);
-            }
-            if (!localStorage.getItem('pass')) {
-                localStorage.setItem('pass', this.credentials.pass);
-            }
+        async init() {
+            console.log('Main app init - Initializing crypto system...');
             
-            // Load secrets on init
-            this.loadSecrets();
-            this.loadPendingSecrets();
+            // Clean up old localStorage entries
+            localStorage.removeItem('uid');
+            localStorage.removeItem('pass');
+            
+            try {
+                // Initialize crypto system
+                this.cryptoSystem = await initializeCryptoSystem();
+                
+                // Generate User ID from symmetric key
+                await this.updateUserIdFromSymmetricKey();
+                
+                console.log('Crypto system initialized, UID:', this.credentials.uid);
+                
+                // Load secrets on init
+                this.loadSecrets();
+                this.loadPendingSecrets();
+            } catch (error) {
+                console.error('Failed to initialize crypto system:', error);
+                alert('Failed to initialize encryption system: ' + error.message);
+            }
             
             // Watch for modal close to update lists
             this.$watch('showModal', (newValue, oldValue) => {
@@ -65,17 +79,68 @@ function app() {
             });
         },
         
+        async updateUserIdFromSymmetricKey() {
+            try {
+                const symmetricKey = await getDecryptedSymmetricKey(this.cryptoSystem.keyPair);
+                this.credentials.uid = await generateUserIdFromSymmetricKey(symmetricKey);
+                
+                // Clear symmetric key from memory
+                clearSymmetricKeyFromMemory(symmetricKey);
+            } catch (error) {
+                console.error('Failed to generate User ID:', error);
+                this.credentials.uid = 'Error loading';
+            }
+        },
+        
+        async regenerateCryptoSystem() {
+            if (!confirm('This will regenerate your entire crypto system. You will lose access to all current secrets. Continue?')) {
+                return;
+            }
+            
+            try {
+                // Clear IndexedDB keys
+                if (this.cryptoSystem.keyStorage) {
+                    await this.cryptoSystem.keyStorage.clearKeys();
+                }
+                
+                // Clear localStorage
+                localStorage.removeItem('inigma_encrypted_symmetric_key');
+                
+                // Reinitialize crypto system
+                this.cryptoSystem = await initializeCryptoSystem();
+                
+                // Update User ID
+                await this.updateUserIdFromSymmetricKey();
+                
+                // Show success message
+                this.toastMessage = 'Crypto system regenerated!';
+                this.showToast = true;
+                setTimeout(() => this.showToast = false, 3000);
+                
+                // Reload secrets (should be empty now)
+                this.loadSecrets();
+                this.loadPendingSecrets();
+                
+            } catch (error) {
+                console.error('Failed to regenerate crypto system:', error);
+                alert('Failed to regenerate crypto system: ' + error.message);
+            }
+        },
+        
+        
         async processMessage() {
             if (!this.message || this.processing) return;
             
             this.processing = true;
-            const password = generatePassword(20);
-            
-            const salt = window.crypto.getRandomValues(new Uint8Array(16));
-            const iv = window.crypto.getRandomValues(new Uint8Array(16));
             
             try {
-                const encrypted = await encrypt(this.message, salt, iv, password);
+                // Generate new unique symmetric key for this secret (not the user's main key)
+                const secretSymmetricKey = generateSymmetricKey();
+                
+                const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                
+                const encrypted = await encrypt(this.message, salt, iv, secretSymmetricKey);
                 
                 const response = await fetch('/api/create', {
                     method: 'POST',
@@ -92,9 +157,12 @@ function app() {
                 
                 const data = await response.json();
                 
-                this.links.full = `${data.url}view?view=${data.view}&key=${password}`;
+                this.links.full = `${data.url}view?view=${data.view}&key=${encodeURIComponent(secretSymmetricKey)}`;
                 this.links.noKey = `${data.url}view?view=${data.view}`;
-                this.links.keyOnly = password;
+                this.links.keyOnly = secretSymmetricKey;
+                
+                // Clear secret symmetric key from memory
+                clearSymmetricKeyFromMemory(secretSymmetricKey);
                 
                 // Auto-copy full link
                 await navigator.clipboard.writeText(this.links.full);
@@ -122,25 +190,78 @@ function app() {
             setTimeout(() => this.showToast = false, 3000);
         },
         
-        saveCredentials() {
-            // Save both UID and password to localStorage
-            localStorage.setItem('uid', this.credentials.uid);
-            localStorage.setItem('pass', this.credentials.pass);
-            
-            // Show brief confirmation
-            this.toastMessage = 'Credentials saved!';
-            this.showToast = true;
-            setTimeout(() => this.showToast = false, 2000);
+        async exportSymmetricKey() {
+            try {
+                const symmetricKey = await getDecryptedSymmetricKey(this.cryptoSystem.keyPair);
+                this.exportedSymmetricKey = symmetricKey;
+                this.showExportedKey = false;
+                this.showExportKeyModal = true;
+                
+                // Clear symmetric key from memory after showing modal
+                setTimeout(() => {
+                    clearSymmetricKeyFromMemory(symmetricKey);
+                }, 100);
+            } catch (error) {
+                console.error('Failed to export symmetric key:', error);
+                alert('Failed to export key: ' + error.message);
+            }
         },
         
-        regenerateCredentials() {
-            if (confirm('This will regenerate your credentials. You will lose access to any messages encrypted with current credentials. Continue?')) {
-                this.credentials.uid = generatePassword(12);
-                this.credentials.pass = generatePassword(24);
-                localStorage.setItem('uid', this.credentials.uid);
-                localStorage.setItem('pass', this.credentials.pass);
-                this.loadSecrets(); // Reload secrets with new credentials
-                this.loadPendingSecrets(); // Reload pending secrets
+        toggleExportedKeyVisibility() {
+            this.showExportedKey = !this.showExportedKey;
+        },
+        
+        async copyExportedKeyToClipboard() {
+            await navigator.clipboard.writeText(this.exportedSymmetricKey);
+            this.toastMessage = 'Key copied to clipboard!';
+            this.showToast = true;
+            setTimeout(() => this.showToast = false, 3000);
+        },
+        
+        closeImportKeyModal() {
+            this.showImportKeyModal = false;
+            this.importSymmetricKey = '';
+            this.importingKey = false;
+        },
+        
+        async saveImportedKey() {
+            if (!this.importSymmetricKey.trim()) {
+                alert('Please enter a symmetric key');
+                return;
+            }
+            
+            this.importingKey = true;
+            
+            try {
+                // Encrypt the imported symmetric key with current RSA public key
+                const encryptedSymmetricKey = await encryptSymmetricKey(
+                    this.importSymmetricKey.trim(), 
+                    this.cryptoSystem.keyPair.publicKey
+                );
+                
+                // Save to localStorage
+                localStorage.setItem('inigma_encrypted_symmetric_key', encryptedSymmetricKey);
+                
+                // Update User ID
+                await this.updateUserIdFromSymmetricKey();
+                
+                // Close modal and clear data
+                this.closeImportKeyModal();
+                
+                // Show success message
+                this.toastMessage = 'Key imported successfully!';
+                this.showToast = true;
+                setTimeout(() => this.showToast = false, 3000);
+                
+                // Reload secrets with new key
+                this.loadSecrets();
+                this.loadPendingSecrets();
+                
+            } catch (error) {
+                console.error('Failed to import symmetric key:', error);
+                alert('Failed to import key: ' + error.message);
+            } finally {
+                this.importingKey = false;
             }
         },
         
@@ -263,9 +384,15 @@ function app() {
             }
         },
         
-        openSecret(secretId) {
-            const url = `/view?view=${secretId}&uid=${this.credentials.uid}`;
-            window.open(url, '_blank');
+        async openSecret(secretId) {
+            try {
+                // For owned secrets, open without key parameter - they should be encrypted with user's main key
+                const url = `/view?view=${secretId}`;
+                window.open(url, '_blank');
+            } catch (error) {
+                console.error('Failed to open secret:', error);
+                alert('Failed to open secret: ' + error.message);
+            }
         },
         
         async deleteSecret(secret) {
@@ -325,5 +452,39 @@ function app() {
             }
         },
         
+        async regenerateCryptoSystem() {
+            if (!confirm('This will regenerate your entire crypto system. You will lose access to all current secrets. Continue?')) {
+                return;
+            }
+            
+            try {
+                // Clear IndexedDB keys
+                if (this.cryptoSystem.keyStorage) {
+                    await this.cryptoSystem.keyStorage.clearKeys();
+                }
+                
+                // Clear localStorage
+                localStorage.removeItem('inigma_encrypted_symmetric_key');
+                
+                // Reinitialize crypto system
+                this.cryptoSystem = await initializeCryptoSystem();
+                
+                // Update User ID
+                await this.updateUserIdFromSymmetricKey();
+                
+                // Show success message
+                this.toastMessage = 'Crypto system regenerated!';
+                this.showToast = true;
+                setTimeout(() => this.showToast = false, 3000);
+                
+                // Reload secrets (should be empty now)
+                this.loadSecrets();
+                this.loadPendingSecrets();
+                
+            } catch (error) {
+                console.error('Failed to regenerate crypto system:', error);
+                alert('Failed to regenerate crypto system: ' + error.message);
+            }
+        },
     }
 }

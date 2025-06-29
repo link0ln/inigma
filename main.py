@@ -404,7 +404,7 @@ async def update_owner(request: UpdateOwnerRequest):
         logger.info(f"Message {request.view} already owned")
         return {"status": "failed", "message": "Secret already owned"}
     
-    # Update message owner
+    # Update message owner with new encryption
     success = db.update_message_owner(
         request.view, 
         request.uid, 

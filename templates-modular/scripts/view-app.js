@@ -22,19 +22,20 @@ function viewApp() {
                 this.showError('Invalid or missing message ID');
                 return;
             }
-            
-            // Get local credentials (generate only if not exists, but don't overwrite pass)
-            let uid = localStorage.getItem('uid');
-            if (!uid) {
-                uid = generatePassword(12);
-                localStorage.setItem('uid', uid);
-                // Only set pass if it doesn't exist
-                if (!localStorage.getItem('pass')) {
-                    localStorage.setItem('pass', generatePassword(24));
-                }
-                console.log('Generated new UID for view:', uid);
-            } else {
-                console.log('Using existing UID for view:', uid);
+
+            // Initialize crypto system to get User ID
+            let uid;
+            try {
+                const cryptoSystem = await initializeCryptoSystem();
+                const symmetricKey = await getDecryptedSymmetricKey(cryptoSystem.keyPair);
+                uid = await generateUserIdFromSymmetricKey(symmetricKey);
+                clearSymmetricKeyFromMemory(symmetricKey);
+                console.log('Generated UID from crypto system for view:', uid);
+            } catch (error) {
+                console.error('Failed to initialize crypto system for view:', error);
+                // Fallback to a temporary UID for this session
+                uid = 'temp_' + Math.random().toString(36).substring(2, 14);
+                console.log('Using temporary UID for view:', uid);
             }
             
             try {
@@ -55,12 +56,22 @@ function viewApp() {
                 this.isOwner = data.is_owner;
                 
                 // Try to decrypt
-                if (this.isOwner) {
-                    // Use local password
-                    await this.decryptMessage(localStorage.getItem('pass'));
-                } else if (urlKey) {
-                    // Use URL key
-                    await this.decryptMessage(urlKey);
+                if (urlKey) {
+                    // Decode URI component and use provided key
+                    const decodedKey = decodeURIComponent(urlKey);
+                    await this.decryptMessage(decodedKey);
+                } else if (this.isOwner) {
+                    // For owned secrets, use user's main symmetric key
+                    try {
+                        const cryptoSystem = await initializeCryptoSystem();
+                        const mainSymmetricKey = await getDecryptedSymmetricKey(cryptoSystem.keyPair);
+                        await this.decryptMessage(mainSymmetricKey);
+                        clearSymmetricKeyFromMemory(mainSymmetricKey);
+                    } catch (error) {
+                        console.error('Failed to decrypt with main key:', error);
+                        this.needPassword = true;
+                        this.loading = false;
+                    }
                 } else {
                     // Need password
                     this.needPassword = true;
@@ -104,25 +115,40 @@ function viewApp() {
         async updateOwnership(message) {
             const urlParams = new URLSearchParams(window.location.search);
             const view = urlParams.get('view');
-            const uid = localStorage.getItem('uid');
-            const password = localStorage.getItem('pass');
             
-            const salt = window.crypto.getRandomValues(new Uint8Array(16));
-            const iv = window.crypto.getRandomValues(new Uint8Array(16));
-            
-            const encrypted = await encrypt(message, salt, iv, password);
-            
-            await fetch('/api/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    view,
-                    uid,
-                    encrypted_message: arrayBufferToBase64(encrypted),
-                    iv: arrayBufferToBase64(iv),
-                    salt: arrayBufferToBase64(salt)
-                })
-            });
+            try {
+                // Initialize crypto system to get UID and re-encrypt with user's main key
+                const cryptoSystem = await initializeCryptoSystem();
+                const symmetricKey = await getDecryptedSymmetricKey(cryptoSystem.keyPair);
+                const uid = await generateUserIdFromSymmetricKey(symmetricKey);
+                
+                // Re-encrypt the message with user's main symmetric key
+                const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                const encrypted = await encrypt(message, salt, iv, symmetricKey);
+                
+                await fetch('/api/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        view,
+                        uid,
+                        encrypted_message: arrayBufferToBase64(encrypted),
+                        iv: arrayBufferToBase64(iv),
+                        salt: arrayBufferToBase64(salt)
+                    })
+                });
+                
+                // Update local state - now user is owner
+                this.isOwner = true;
+                
+                // Clear symmetric key from memory
+                clearSymmetricKeyFromMemory(symmetricKey);
+                
+            } catch (error) {
+                console.error('Failed to update ownership:', error);
+                throw error;
+            }
         },
         
         async decryptWithPassword() {
