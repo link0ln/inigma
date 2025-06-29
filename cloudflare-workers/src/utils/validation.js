@@ -3,10 +3,10 @@
  */
 
 /**
- * Validate message ID format
+ * Validate message ID format (matching Python version)
  */
 export function isValidMessageId(id) {
-  return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(id);
+  return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,50}$/.test(id);
 }
 
 /**
@@ -17,10 +17,10 @@ export function isValidUid(uid) {
 }
 
 /**
- * Validate custom name
+ * Validate custom name (matching Python version)
  */
 export function isValidCustomName(name) {
-  return typeof name === 'string' && name.length <= 200;
+  return typeof name === 'string' && name.length <= 100;
 }
 
 /**
@@ -54,11 +54,62 @@ export function validatePagination(page, perPage) {
 }
 
 /**
- * Sanitize string to prevent XSS
+ * Sanitize string to prevent XSS (matching Python version)
  */
 export function sanitizeString(str) {
   if (typeof str !== 'string') return '';
-  return str.replace(/[<>"'&]/g, '').trim();
+  
+  // Remove HTML tags and dangerous characters like in Python version
+  let sanitized = str.replace(/<[^>]*>/g, ''); // Remove HTML tags
+  sanitized = sanitized.replace(/[<>"'/\\]/g, ''); // Remove dangerous chars
+  sanitized = sanitized.trim();
+  
+  return sanitized.slice(0, 100); // Limit to 100 characters like Python
+}
+
+/**
+ * Add security headers to response (matching Python version)
+ */
+export function addSecurityHeaders(headers = {}) {
+  return {
+    ...headers,
+    "Content-Security-Policy": 
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdnjs.cloudflare.com; " +
+      "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; " +
+      "font-src 'self' https://cdnjs.cloudflare.com; " +
+      "img-src 'self' data:; " +
+      "connect-src 'self'; " +
+      "frame-ancestors 'none'; " +
+      "object-src 'none'; " +
+      "base-uri 'self'",
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-XSS-Protection": "1; mode=block"
+  };
+}
+
+/**
+ * Sanitize text input to prevent XSS (matching Python version exactly)
+ */
+export function sanitizeText(text) {
+  if (typeof text !== 'string') {
+    return "";
+  }
+  
+  // HTML escape the text (basic implementation)
+  let sanitized = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  
+  // Remove any remaining dangerous characters
+  sanitized = sanitized.replace(/[<>"/\\]/g, '');
+  
+  return sanitized.slice(0, 1000); // Limit length to 1000 like Python
 }
 
 /**
@@ -79,6 +130,7 @@ export function getTimestamp() {
 /**
  * Calculate time remaining for a secret with smart formatting
  * Returns object with time remaining and formatted display string
+ * (matching Python version exactly)
  */
 export function calculateTimeRemaining(ttl, currentTime) {
   if (ttl === 9999999999) {

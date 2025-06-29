@@ -3,6 +3,24 @@ main = "index.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Development environment
+[env.development]
+routes = [ { pattern = "inigma-dev.idone.su", custom_domain = true } ]
+
+# D1 database binding (same as production)
+[[env.development.d1_databases]]
+binding = "INIGMA_DB"
+database_name = "inigma-database"
+database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
+
+# Environment variables for development
+[env.development.vars]
+DOMAIN = "inigma-dev.idone.su"
+CLEANUP_DAYS = "50"
+
+[env.development.triggers]
+crons = ["0 2 * * *"] # Daily at 2:00 AM
+
 [env.production]
 routes = [ { pattern = "inigma.idone.su", custom_domain = true } ]
 
@@ -15,10 +33,14 @@ database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 # Переменные окружения
 [env.production.vars]
 DOMAIN = "inigma.idone.su"
-CLEANUP_DAYS = "2"
+CLEANUP_DAYS = "50"
 
 [env.production.triggers]
 crons = ["0 2 * * *"] # Ежедневно в 2:00
 
 # ВАЖНО: Для кастомного домена настройте его через Cloudflare Dashboard, а не через wrangler.toml.
 # Инструкции см. в README.md (раздел "Настройка Custom Domain").
+
+# Команды для деплоя:
+# Development: npx wrangler deploy --env development
+# Production: npx wrangler deploy --env production

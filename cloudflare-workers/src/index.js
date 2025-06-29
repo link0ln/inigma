@@ -10,9 +10,10 @@ import { cleanupOldMessages } from './utils/database.js';
 import { getCorsHeaders } from './utils/cors.js';
 
 /**
- * Handle scheduled events (cleanup)
+ * Handle scheduled events (cleanup) - like Python cron job
  */
 async function handleScheduled(event, env, ctx) {
+  console.log('Running scheduled cleanup job...');
   ctx.waitUntil(cleanupOldMessages(env));
 }
 

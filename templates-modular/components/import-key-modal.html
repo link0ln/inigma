@@ -52,7 +52,7 @@
             <button 
                 @click="saveImportedKey()"
                 :disabled="!importSymmetricKey.trim() || importingKey"
-                class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-all text-sm text-white"
+                class="flex-1 px-4 py-2 bg-emerald-500/60 hover:bg-emerald-600/70 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-all text-sm text-white"
             >
                 <i class="fas fa-save mr-2"></i>
                 <span x-text="importingKey ? 'Saving...' : 'Save Key'"></span>

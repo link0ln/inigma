@@ -47,11 +47,37 @@ wrangler d1 create inigma-database
 npm install
 ```
 
-### 5. Deploy to Production
+### 5. Deploy
+
+#### Development Environment
+Deploy to development environment (inigma-dev.idone.su):
+
+```bash
+npm run deploy:development
+# or
+npx wrangler deploy --env development
+```
+
+#### Production Environment
+Deploy to production environment (inigma.idone.su):
 
 ```bash
 npm run deploy:production
+# or
+npx wrangler deploy --env production
 ```
+
+## Environments
+
+### Development
+- **URL**: https://inigma-dev.idone.su
+- **Database**: Shared with production (same D1 instance)
+- **Purpose**: Testing new features before production release
+
+### Production
+- **URL**: https://inigma.idone.su
+- **Database**: Main D1 database
+- **Purpose**: Live production instance
 
 ## Development
 
@@ -80,14 +106,29 @@ wrangler tail --env production
 
 ### Environment Setup
 
-The deployment uses `wrangler.toml` for configuration. Key settings:
+The deployment uses `wrangler.toml` for configuration with separate environments:
 
+#### Development Environment
+```toml
+[env.development]
+routes = [ { pattern = "inigma-dev.idone.su", custom_domain = true } ]
+
+[env.development.vars]
+DOMAIN = "inigma-dev.idone.su"
+CLEANUP_DAYS = "50"
+
+[env.development.triggers]
+crons = ["0 2 * * *"]  # Daily cleanup at 2 AM UTC
+```
+
+#### Production Environment
 ```toml
 [env.production]
-name = "inigma"
-d1_databases = [
-  { binding = "INIGMA_DB", database_name = "inigma-database", database_id = "your-database-id" }
-]
+routes = [ { pattern = "inigma.idone.su", custom_domain = true } ]
+
+[env.production.vars]
+DOMAIN = "inigma.idone.su"
+CLEANUP_DAYS = "50"
 
 [env.production.triggers]
 crons = ["0 2 * * *"]  # Daily cleanup at 2 AM UTC
@@ -95,9 +136,19 @@ crons = ["0 2 * * *"]  # Daily cleanup at 2 AM UTC
 
 ### Custom Domain Setup
 
+#### For Development Domain (inigma-dev.idone.su):
 1. **In Cloudflare Dashboard:**
    - Go to Workers & Pages
    - Select your `inigma` worker
+   - Click "Settings" → "Triggers" → "Custom Domains"
+   - Add `inigma-dev.idone.su`
+
+#### For Production Domain (inigma.idone.su):
+1. **In Cloudflare Dashboard:**
+   - Go to Workers & Pages
+   - Select your `inigma` worker
+   - Click "Settings" → "Triggers" → "Custom Domains"
+   - Add `inigma.idone.su`
    - Navigate to Settings → Triggers
    - Add Custom Domain: `your-domain.com`
 

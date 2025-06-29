@@ -19,13 +19,13 @@
         <div class="flex gap-4">
             <button 
                 @click="cancelDelete()"
-                class="flex-1 px-6 py-3 bg-gray-500/30 hover:bg-gray-500/50 rounded-lg transition-all font-medium"
+                class="flex-1 px-6 py-3 bg-slate-500/40 hover:bg-slate-500/60 rounded-lg transition-all font-medium"
             >
                 <i class="fas fa-times mr-2"></i>Cancel
             </button>
             <button 
                 @click="confirmDelete()"
-                class="flex-1 px-6 py-3 bg-red-500/30 hover:bg-red-500/50 rounded-lg transition-all font-medium"
+                class="flex-1 px-6 py-3 bg-red-500/40 hover:bg-red-500/60 rounded-lg transition-all font-medium"
                 :disabled="deletingSecrets[secretToDelete?.id] || false"
             >
                 <i class="fas fa-trash mr-2" :class="{ 'fa-spin fa-spinner': deletingSecrets[secretToDelete?.id] }"></i>

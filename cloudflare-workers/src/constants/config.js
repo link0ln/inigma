@@ -15,8 +15,8 @@ export const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// Default cleanup days for old messages
-export const DEFAULT_CLEANUP_DAYS = 2;
+// Default cleanup days for old messages (matching Python version)
+export const DEFAULT_CLEANUP_DAYS = 50;
 
 // Default message TTL for permanent messages
 export const PERMANENT_TTL = 9999999999;

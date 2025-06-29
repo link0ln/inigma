@@ -7,6 +7,7 @@
     "build": "node build.js",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && cd build && wrangler deploy",
+    "deploy:development": "npm run build && cd build && wrangler deploy --env development",
     "deploy:production": "npm run build && cd build && wrangler deploy --env production"
   },
   "devDependencies": {

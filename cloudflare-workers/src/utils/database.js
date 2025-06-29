@@ -2,7 +2,7 @@
  * D1 Database utility functions for Inigma
  */
 
-import { DEFAULT_CLEANUP_DAYS } from '../constants/config.js';
+import { DEFAULT_CLEANUP_DAYS, PERMANENT_TTL } from '../constants/config.js';
 import { getTimestamp, calculateTimeRemaining } from './validation.js';
 
 /**
@@ -158,21 +158,21 @@ export async function listUserSecrets(env, uid, page = 1, perPage = 10) {
     // Get total count
     const countStmt = env.INIGMA_DB.prepare(`
       SELECT COUNT(*) as total FROM messages 
-      WHERE uid = ? AND (ttl > ? OR ttl = 9999999999)
+      WHERE uid = ? AND (ttl > ? OR ttl = ?)
     `);
-    const countResult = await countStmt.bind(uid, currentTime).first();
+    const countResult = await countStmt.bind(uid, currentTime, PERMANENT_TTL).first();
     const total = countResult?.total || 0;
     
     // Get paginated results
     const stmt = env.INIGMA_DB.prepare(`
       SELECT id, custom_name, ttl, created_at 
       FROM messages 
-      WHERE uid = ? AND (ttl > ? OR ttl = 9999999999)
+      WHERE uid = ? AND (ttl > ? OR ttl = ?)
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `);
     
-    const results = await stmt.bind(uid, currentTime, perPage, offset).all();
+    const results = await stmt.bind(uid, currentTime, PERMANENT_TTL, perPage, offset).all();
     
     const secrets = results.results.map(row => {
       // Calculate time remaining with smart formatting
@@ -211,21 +211,21 @@ export async function listPendingSecrets(env, creatorUid, page = 1, perPage = 10
     // Get total count
     const countStmt = env.INIGMA_DB.prepare(`
       SELECT COUNT(*) as total FROM messages 
-      WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = 9999999999)
+      WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = ?)
     `);
-    const countResult = await countStmt.bind(creatorUid, currentTime).first();
+    const countResult = await countStmt.bind(creatorUid, currentTime, PERMANENT_TTL).first();
     const total = countResult?.total || 0;
     
     // Get paginated results
     const stmt = env.INIGMA_DB.prepare(`
       SELECT id, custom_name, ttl, created_at 
       FROM messages 
-      WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = 9999999999)
+      WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = ?)
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `);
     
-    const results = await stmt.bind(creatorUid, currentTime, perPage, offset).all();
+    const results = await stmt.bind(creatorUid, currentTime, PERMANENT_TTL, perPage, offset).all();
     
     const secrets = results.results.map(row => {
       // Calculate time remaining with smart formatting
@@ -265,10 +265,10 @@ export async function cleanupOldMessages(env) {
     // Delete expired messages and old messages
     const stmt = env.INIGMA_DB.prepare(`
       DELETE FROM messages 
-      WHERE (ttl < ? AND ttl != 9999999999) OR created_at < ?
+      WHERE (ttl < ? AND ttl != ?) OR created_at < ?
     `);
     
-    const result = await stmt.bind(currentTime, cutoffTime).run();
+    const result = await stmt.bind(currentTime, PERMANENT_TTL, cutoffTime).run();
     const deletedCount = result.changes || 0;
     
     console.log(`Cleanup completed. Deleted ${deletedCount} expired messages.`);
