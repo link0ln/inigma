@@ -170,7 +170,7 @@ function app() {
                 
                 const data = await response.json();
                 
-                this.links.full = `${data.url}view?view=${data.view}&key=${encodeURIComponent(secretSymmetricKey)}`;
+                this.links.full = `${data.url}view?view=${data.view}#key=${encodeURIComponent(secretSymmetricKey)}`;
                 this.links.noKey = `${data.url}view?view=${data.view}`;
                 this.links.keyOnly = secretSymmetricKey;
                 
