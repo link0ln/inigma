@@ -1,0 +1,37 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare Workers
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: cloudflare-workers/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./cloudflare-workers
+        run: npm ci
+
+      - name: Build project
+        working-directory: ./cloudflare-workers
+        run: npm run build
+
+      - name: Deploy to Cloudflare Workers (Production)
+        working-directory: ./cloudflare-workers
+        run: npm run deploy:production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
