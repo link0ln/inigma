@@ -44,7 +44,20 @@ function app() {
         },
         
         async init() {
-            console.log('Main app init - Initializing crypto system...');
+            console.log('Main app init - Initializing security and crypto system...');
+            
+            // Initialize security hardening first
+            try {
+                if (window.securityHardening && typeof window.securityHardening.init === 'function') {
+                    await window.securityHardening.init();
+                    console.log('Security hardening initialized');
+                } else {
+                    console.warn('Security hardening not available - running without enhanced security');
+                }
+            } catch (error) {
+                console.error('Failed to initialize security hardening:', error);
+                console.warn('Continuing without enhanced security features');
+            }
             
             // Clean up old localStorage entries
             localStorage.removeItem('uid');
@@ -160,6 +173,7 @@ function app() {
                 this.links.full = `${data.url}view?view=${data.view}&key=${encodeURIComponent(secretSymmetricKey)}`;
                 this.links.noKey = `${data.url}view?view=${data.view}`;
                 this.links.keyOnly = secretSymmetricKey;
+                
                 
                 // Clear secret symmetric key from memory
                 clearSymmetricKeyFromMemory(secretSymmetricKey);

@@ -11,8 +11,9 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, validator
 import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -84,6 +85,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
 
 # Security headers middleware
 @app.middleware("http")
@@ -468,6 +470,9 @@ async def delete_secret(request: DeleteSecretRequest):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+# Mount static files after all routes are defined
+app.mount("/templates-modular", StaticFiles(directory="templates-modular"), name="static")
 
 if __name__ == "__main__":
     logger.info("Starting Inigma server")

@@ -145,8 +145,11 @@ async function generateAsymmetricKeyPair() {
 function generateSymmetricKey(length = 32) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    
     for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(array[i] % chars.length);
     }
     return result;
 }
@@ -333,10 +336,14 @@ async function decrypt(encryptedData, salt, iv, password) {
 }
 
 function generatePassword(length) {
+    // Use cryptographically secure random generation
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(array[i] % chars.length);
     }
     return result;
 }
