@@ -16,8 +16,17 @@ function viewApp() {
         async init() {
             const urlParams = new URLSearchParams(window.location.search);
             const view = SecurityUtils.sanitizeUrlParam(urlParams.get('view') || '');
-            const urlKey = SecurityUtils.sanitizeUrlParam(urlParams.get('key') || '');
-            
+
+            // Read encryption key from URL fragment (hash) - NOT sent to server!
+            const hash = window.location.hash.substring(1); // Remove # symbol
+            const hashParams = new URLSearchParams(hash);
+            const urlKey = SecurityUtils.sanitizeUrlParam(hashParams.get('key') || '');
+
+            // Immediately clean URL to remove key from address bar
+            if (urlKey) {
+                window.history.replaceState(null, '', `/view?view=${view}`);
+            }
+
             if (!view || !SecurityUtils.isValidMessageId(view)) {
                 this.showError('Invalid or missing message ID');
                 return;
