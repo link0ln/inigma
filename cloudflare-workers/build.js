@@ -1,7 +1,41 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 console.log('Building modular Inigma for Cloudflare Workers...');
+
+// Get version info from Git
+function getVersionInfo() {
+  try {
+    const commitHash = execSync('git rev-parse HEAD').toString().trim();
+    const commitHashShort = execSync('git rev-parse --short HEAD').toString().trim();
+    const branch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    const commitDate = execSync('git log -1 --format=%cI').toString().trim();
+    const commitMessage = execSync('git log -1 --format=%s').toString().trim();
+    const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+
+    return {
+      version: packageJson.version,
+      commit: commitHash,
+      commitShort: commitHashShort,
+      branch: branch,
+      commitDate: commitDate,
+      commitMessage: commitMessage,
+      buildDate: new Date().toISOString()
+    };
+  } catch (error) {
+    console.warn('Warning: Could not get Git info:', error.message);
+    return {
+      version: 'unknown',
+      commit: 'unknown',
+      commitShort: 'unknown',
+      branch: 'unknown',
+      commitDate: 'unknown',
+      commitMessage: 'unknown',
+      buildDate: new Date().toISOString()
+    };
+  }
+}
 
 // First, build templates from modular structure
 function buildTemplate(templatePath, outputPath) {
@@ -144,6 +178,10 @@ function escapeForJS(str) {
     .replace(/\r/g, '\\r');
 }
 
+// Get version info
+const versionInfo = getVersionInfo();
+console.log('Version info:', versionInfo);
+
 // Create the templates content
 const templatesContent = `
 // HTML Templates
@@ -151,10 +189,14 @@ const indexHTML = \`${escapeForJS(indexHTML)}\`;
 const viewHTML = \`${escapeForJS(viewHTML)}\`;
 const fallbackCryptoJS = \`${escapeForJS(fallbackCryptoJS)}\`;
 
+// Version information
+const VERSION_INFO = ${JSON.stringify(versionInfo, null, 2)};
+
 // Make templates globally available
 globalThis.indexHTML = indexHTML;
 globalThis.viewHTML = viewHTML;
 globalThis.fallbackCryptoJS = fallbackCryptoJS;
+globalThis.VERSION_INFO = VERSION_INFO;
 `;
 
 // Replace template placeholder with actual templates

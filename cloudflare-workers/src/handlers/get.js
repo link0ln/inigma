@@ -34,7 +34,16 @@ export async function handleGet(request, env) {
       },
     });
   }
-  
+
+  if (path === '/version') {
+    return new Response(JSON.stringify(VERSION_INFO, null, 2), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
   // Serve static files (fallback crypto)
   if (path === '/static/fallback-crypto.js') {
     return new Response(fallbackCryptoJS, {
