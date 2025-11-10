@@ -52,17 +52,17 @@ database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 binding = "INIGMA_KV"
 id = "32a3b5af57e14ad99d07ac3965957fee"
 
-# Переменные окружения
+# Environment variables
 [env.production.vars]
 DOMAIN = "inigma.idone.su"
 CLEANUP_DAYS = "50"
 
 [env.production.triggers]
-crons = ["0 2 * * *"] # Ежедневно в 2:00
+crons = ["0 2 * * *"] # Daily at 2:00 AM
 
-# ВАЖНО: Для кастомного домена настройте его через Cloudflare Dashboard, а не через wrangler.toml.
-# Инструкции см. в README.md (раздел "Настройка Custom Domain").
+# IMPORTANT: Configure custom domain via Cloudflare Dashboard, not via wrangler.toml
+# See README.md for instructions
 
-# Команды для деплоя:
+# Deploy commands:
 # Development: npx wrangler deploy --env development
 # Production: npx wrangler deploy --env production

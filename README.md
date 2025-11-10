@@ -1,325 +1,316 @@
-# Inigma
+# Inigma - Secure Message Sharing Service
 
-Inigma is a secure message sharing application that allows users to send private information safely with end-to-end encryption. The application features client-side AES encryption, TTL-based message expiration, user ownership controls, custom naming, and automatic cleanup of old messages.
+Inigma is an end-to-end encrypted message sharing service for securely transmitting sensitive information with automatic expiration and zero-knowledge architecture.
 
 ## Features
 
-- **End-to-End Encryption**: Client-side AES-256-GCM encryption using Web Crypto API
-- **Message Expiration**: Automatic TTL-based message cleanup
-- **User Ownership**: Credential-based message ownership and management
-- **Custom Names**: Optional custom names for better organization
-- **Secure Communication**: HTTPS with nginx proxy and security headers
-- **Responsive Design**: Mobile-friendly interface
-- **Auto-Cleanup**: Removes expired messages automatically
-
-## Quick Start
-
-### Using Docker Compose (Recommended)
-
-```bash
-# Clone and navigate to the project
-git clone <repository-url>
-cd inigma
-
-# Create data directory for persistent database storage
-mkdir -p data
-
-# Start the application
-docker-compose up --build -d
-
-# Access the application
-# HTTPS: https://localhost:8443
-# HTTP: http://localhost:8080 (redirects to HTTPS)
-```
-
-### Development Mode
-
-```bash
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Run development server
-python main.py
-# Access at http://localhost:8000
-```
-
-### Environment Configuration
-
-```bash
-# Copy example environment file
-cp .env.example .env
-
-# Edit environment variables as needed
-# DOMAIN - Domain for generated links (default: localhost:8443)
-# CORS_ORIGINS - Allowed CORS origins (default: https://localhost:8443)
-```
+- **End-to-End Encryption**: Client-side AES-256-GCM encryption with PBKDF2 (800k iterations)
+- **Zero-Knowledge Architecture**: Server never sees unencrypted data
+- **Message Expiration**: Automatic TTL-based cleanup
+- **User Ownership**: RSA key-based message management
+- **Rate Limiting**: KV-based distributed rate limiting on Cloudflare Workers
+- **Responsive UI**: Mobile-friendly interface with Tailwind CSS
 
 ## Architecture
 
-Inigma supports two deployment architectures:
-
-### 1. Docker Deployment (Recommended for Self-Hosting)
-
-- **FastAPI Backend**: REST API with SQLite database storage
-- **Nginx Proxy**: HTTPS termination with self-signed certificates
-- **Client-Side Encryption**: Web Crypto API for AES encryption
-- **SQLite Database**: Persistent storage with indexed queries for better performance
-
-#### Network Architecture
-
 ```
-Internet → Nginx (8080/8443) → Internal Network → Inigma App (8000)
-```
-
-- **External Access**: Only nginx is exposed to the internet
-- **Internal Communication**: App runs on internal Docker network
-- **SSL Termination**: Nginx handles HTTPS with self-signed certificates
-
-### 2. Cloudflare Workers Deployment (Serverless)
-
-- **Edge Runtime**: Deployed on Cloudflare's global edge network
-- **D1 Database**: Cloudflare's SQLite-based database for edge computing
-- **Custom Domain**: Can be deployed on custom domains
-- **Global CDN**: Automatic global distribution and caching
-
-#### Cloudflare Architecture
-
-```
-Internet → Cloudflare Edge → Worker Runtime → D1 Database
+┌─────────────┐      HTTPS/TLS      ┌──────────────┐
+│   Browser   │ ◄─────────────────► │   Backend    │
+│             │                      │ (Python/CF)  │
+│ ┌─────────┐ │                      │              │
+│ │Web Crypto│ │   Encrypted Data    │ ┌──────────┐ │
+│ │  API    │ ├──────────────────────┤ │ Database │ │
+│ │(AES-256)│ │                      │ │(SQLite/D1│ │
+│ └─────────┘ │                      │ └──────────┘ │
+│             │                      │              │
+│ RSA Keys in │                      │   + KV Rate  │
+│ IndexedDB   │                      │   Limiting   │
+└─────────────┘                      └──────────────┘
 ```
 
-**Production Instance**: [https://inigma.idone.su](https://inigma.idone.su)
-
-For detailed Cloudflare Workers deployment instructions, see [`cloudflare-workers/README.md`](cloudflare-workers/README.md).
-
-### Security Model
-
-- All encryption/decryption happens client-side
-- Server never sees plaintext content
-- Messages can be bound to user credentials
-- HTTPS required for Web Crypto API
-- Strict Content Security Policy headers
-- Input validation and sanitization
-
-## API Reference
-
-### Endpoints
-
-- `POST /api/create` - Create new encrypted message
-- `POST /api/view` - View message (requires credentials if owned)
-- `POST /api/update` - Claim ownership of message
-- `POST /api/list-secrets` - List user's messages with pagination
-- `POST /api/update-custom-name` - Update message custom name
-- `POST /api/delete-secret` - Delete user's message
-- `GET /health` - Health check endpoint
-
-### Message Structure
-
-Messages are stored in the database with the following structure:
-
-```sql
--- SQLite/D1 Database Schema
-CREATE TABLE messages (
-    id TEXT PRIMARY KEY,              -- Message ID
-    ttl INTEGER NOT NULL,             -- Time to live (Unix timestamp)
-    uid TEXT NOT NULL DEFAULT '',    -- Owner user ID (empty if unclaimed)
-    encrypted_message TEXT NOT NULL, -- Base64 encrypted content
-    iv TEXT NOT NULL,                -- Base64 initialization vector
-    salt TEXT NOT NULL,              -- Base64 salt for key derivation
-    custom_name TEXT DEFAULT '',     -- Optional custom name
-    creator_uid TEXT DEFAULT '',     -- Creator user ID
-    created_at INTEGER NOT NULL      -- Creation timestamp
-);
-```
+**Encryption Flow:**
+1. User generates RSA keypair (stored in IndexedDB, non-extractable)
+2. Message encrypted with AES-256-GCM + random salt
+3. Only encrypted data sent to server
+4. Recipient decrypts locally with shared key
 
 ## Deployment Options
 
-### 1. Docker Compose (Recommended for Self-Hosting)
+### Option 1: Docker (Local/Self-Hosted)
 
-The main deployment method using nginx proxy:
+**Requirements:** Docker, Docker Compose
+
+**Step-by-Step:**
 
 ```bash
-docker-compose up --build -d
+# 1. Clone repository
+git clone <repository-url>
+cd inigma
+
+# 2. Create data directory
+mkdir -p data
+
+# 3. Configure environment (optional)
+cp .env.example .env
+# Edit .env if needed (defaults work for local)
+
+# 4. Start services
+docker-compose up -d --build
+
+# 5. Access application
+open https://localhost:8443
 ```
 
 **Services:**
-- `inigma-app`: FastAPI application (internal network only)
-- `inigma-nginx`: Nginx proxy with HTTPS (exposed ports 8080, 8443)
+- **Web Server**: Python FastAPI app on port 8000
+- **Nginx Proxy**: HTTPS/TLS termination on ports 8080/8443
+- **Database**: SQLite with persistent volume at `./data/inigma.db`
 
-**Access:**
-- HTTPS: https://localhost:8443
-- HTTP: http://localhost:8080 (redirects to HTTPS)
+**Management:**
+```bash
+# View logs
+docker-compose logs -f inigma
 
-### 2. Cloudflare Workers (Serverless)
+# Stop services
+docker-compose down
 
-For global edge deployment with automatic scaling:
+# Rebuild after code changes
+docker-compose up -d --build
+```
+
+### Option 2: Cloudflare Workers (Production)
+
+**Requirements:** Cloudflare account, GitHub repository
+
+**Step-by-Step:**
 
 ```bash
-cd cloudflare-workers/
+# 1. Fork/clone repository
+git clone <repository-url>
+cd inigma
+
+# 2. Create Cloudflare resources
+# - Go to Cloudflare Dashboard → Workers & Pages → KV
+# - Create KV namespace: "inigma-rate-limit"
+# - Copy the namespace ID
+
+# 3. Update wrangler.toml with your KV namespace ID
+# Edit cloudflare-workers/wrangler.toml:
+[[env.production.kv_namespaces]]
+binding = "INIGMA_KV"
+id = "YOUR_KV_NAMESPACE_ID"  # Replace with actual ID
+
+# 4. Configure GitHub Secrets
+# Go to GitHub → Settings → Secrets and variables → Actions
+# Add secrets:
+#   - CLOUDFLARE_API_TOKEN (with Workers/D1/KV permissions)
+#   - CLOUDFLARE_ACCOUNT_ID (your account ID)
+
+# 5. Commit and push to main branch
+git add cloudflare-workers/wrangler.toml
+git commit -m "config: Add KV namespace ID"
+git push origin main
+
+# 6. GitHub Actions will automatically:
+#    ✓ Run D1 migrations
+#    ✓ Build worker bundle
+#    ✓ Deploy to Cloudflare
+```
+
+**Post-Deployment:**
+- Access: `https://inigma.idone.su` (or your custom domain)
+- Monitor: Cloudflare Dashboard → Workers & Pages → inigma-production → Logs
+- Rate limits configured in `src/utils/rateLimit.js`
+
+**GitHub Actions Workflow:**
+- Triggers on push to `main`
+- Applies D1 migrations (idempotent)
+- Deploys worker with all bindings
+- Typical deploy time: 2-3 minutes
+
+## Configuration
+
+### Docker Environment Variables
+
+```env
+# .env file (optional, has defaults)
+DATABASE_PATH=./data/inigma.db
+CLEANUP_DAYS=50
+```
+
+### Cloudflare Configuration
+
+**wrangler.toml:**
+- D1 Database: `inigma-database`
+- KV Namespace: Configured per environment
+- Custom domain: Set in Cloudflare Dashboard
+- Cron cleanup: Daily at 2:00 AM UTC
+
+**Rate Limits** (edit `src/utils/rateLimit.js`):
+```javascript
+const RATE_LIMITS = {
+  '/api/create': { requests: 10, window: 60 },   // 10 per minute
+  '/api/view': { requests: 100, window: 60 },    // 100 per minute
+  '/api/delete-secret': { requests: 20, window: 60 },
+  'default': { requests: 200, window: 60 }
+};
+```
+
+## Security Features
+
+### Implemented
+- ✅ Client-side AES-256-GCM encryption
+- ✅ PBKDF2 key derivation (800k iterations)
+- ✅ RSA keypairs in IndexedDB (non-extractable)
+- ✅ Rate limiting (KV-based on Cloudflare)
+- ✅ CORS validation (prevents bypass attacks)
+- ✅ Input validation (XSS, injection protection)
+- ✅ Size limits (2MB encrypted data)
+- ✅ Composite database indexes (performance)
+- ✅ Security headers (CSP, X-Frame-Options, etc.)
+
+### Architecture Notes
+- **No server-side authentication**: Zero-knowledge by design
+- **URL-based secrets**: Ephemeral, never logged
+- **Symmetric keys**: RSA-encrypted, stored in localStorage
+- **Auto-expiration**: Messages automatically cleaned up
+
+## Development
+
+### Local Python Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run dev server
+python main.py
+
+# Access at http://localhost:8000
+```
+
+### Local Cloudflare Workers Development
+```bash
+cd cloudflare-workers
+
+# Install dependencies
 npm install
+
+# Run local dev server
+npm run dev
+
+# Build for production
 npm run build
-npm run deploy:production
 ```
 
-**Benefits:**
-- Global edge network deployment
-- Automatic scaling and caching
-- D1 database for reliable data storage
-- Custom domain support
-- Zero server maintenance
+### Database Migrations
 
-**Production URL**: https://inigma.idone.su
-
-See [`cloudflare-workers/README.md`](cloudflare-workers/README.md) for detailed instructions.
-
-### 3. Single Container (Development)
-
-For development or simple deployments:
-
+**Cloudflare D1:**
 ```bash
-docker build -t inigma .
-docker run -p 8000:8000 -v $(pwd)/keys:/app/keys inigma
+# Create new migration
+npx wrangler d1 migrations create INIGMA_DB migration_name
+
+# Apply migrations (production)
+npx wrangler d1 migrations apply INIGMA_DB --env production --remote
 ```
 
-### 4. Kubernetes (Advanced)
+**Local SQLite:**
+Migrations auto-applied on startup in `database.py`
 
-Using Helm charts for Kubernetes deployment:
-
-```bash
-helm install inigma ./helm/
-helm upgrade inigma ./helm/
-```
-
-## File Structure
+## Project Structure
 
 ```
 inigma/
-├── main.py                 # FastAPI application
-├── requirements.txt        # Python dependencies
-├── Dockerfile             # Application container
-├── Dockerfile.nginx       # Nginx container
-├── docker-compose.yaml    # Production deployment
-├── nginx.conf             # Nginx configuration
-├── .env.example           # Environment variables template
-├── keys/                  # Message storage directory
-├── static/                # Static assets
-├── templates-modular/     # Modular HTML templates
-│   ├── pages/            # Main page templates
-│   ├── components/       # Reusable components
-│   ├── scripts/          # JavaScript modules
-│   └── styles/           # CSS modules
-├── cloudflare-workers/   # Alternative Cloudflare Workers deployment
-└── helm/                 # Kubernetes deployment manifests
+├── main.py                      # FastAPI application
+├── database.py                  # SQLite/D1 database logic
+├── requirements.txt             # Python dependencies
+├── Dockerfile                   # Docker image
+├── docker-compose.yml           # Local deployment
+├── static/                      # Frontend assets
+├── templates/                   # HTML templates
+├── templates-modular/           # Modular template components
+├── cloudflare-workers/          # Cloudflare Workers deployment
+│   ├── src/
+│   │   ├── index.js            # Main worker entry
+│   │   ├── handlers/           # Request handlers
+│   │   ├── utils/              # Utilities (rate limit, CORS, validation)
+│   │   └── constants/          # Configuration
+│   ├── migrations/             # D1 database migrations
+│   ├── build.js                # Build script
+│   ├── wrangler.toml           # Cloudflare configuration
+│   └── package.json
+└── .github/workflows/          # CI/CD
+    └── cloudflare-deploy.yml   # Auto-deployment
 ```
 
-## Security Considerations
+## API Endpoints
 
-### Encryption
-- **Algorithm**: AES-256-GCM with PBKDF2 key derivation
-- **Client-Side Only**: All encryption/decryption in browser
-- **Key Management**: Keys never transmitted to server
-- **Salt & IV**: Unique per message for cryptographic security
+### Message Operations
+- `POST /api/create` - Create encrypted message
+- `POST /api/view` - View message by ID
+- `POST /api/update` - Update message TTL
+- `POST /api/delete-secret` - Delete message
+- `POST /api/update-custom-name` - Update message name
 
-### HTTPS Requirements
-- **Web Crypto API**: Requires secure context (HTTPS or localhost)
-- **Self-Signed Certificates**: Nginx automatically generates certificates
-- **Browser Security**: Modern browsers required for crypto operations
+### User Operations
+- `POST /api/list-secrets` - List user's messages
+- `POST /api/list-pending-secrets` - List pending messages
 
-### Input Validation
-- Server-side validation for all inputs
-- Client-side sanitization to prevent XSS
-- Message ID format validation
-- TTL range validation (0-365 days)
-- Custom name length limits
+All endpoints return JSON and include rate limit headers:
+```
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 7
+X-RateLimit-Reset: 1699876543000
+```
 
-### Content Security Policy
-- Strict CSP headers prevent code injection
-- Allowlist for required external resources
-- Inline script restrictions with nonces
+## Monitoring
 
-## Browser Support
+### Docker Logs
+```bash
+docker-compose logs -f inigma
+```
 
-**Minimum Requirements:**
-- Chrome 60+ / Chromium-based browsers
-- Firefox 78+
-- Safari 14+
-- Edge 79+
+### Cloudflare Logs
+- Dashboard → Workers & Pages → inigma-production → Logs
+- Real-time logs show requests, errors, and rate limiting
 
-**Required APIs:**
-- Web Crypto API
-- Fetch API
-- Local Storage
-- ES6+ JavaScript features
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DOMAIN` | `localhost:8443` | Base domain for generated message links |
-| `PORT` | `8000` | Application server port |
-| `CORS_ORIGINS` | `https://localhost:8443` | Allowed CORS origins (comma-separated) |
+### Health Check
+```bash
+curl https://inigma.idone.su/api/create -I
+```
 
 ## Troubleshooting
 
-### Common Issues
-
-**SSL Certificate Warnings**
-- Expected with self-signed certificates
-- Add security exception in browser
-- For production, replace with proper SSL certificates
-
-**Web Crypto API Not Available**
-- Ensure HTTPS or localhost access
-- Check browser compatibility
-- Verify secure context requirements
-
-**Message Storage Issues**
-- Ensure `keys/` directory has write permissions
-- Check Docker volume mounts
-- Verify disk space availability
-
-### Logs
-
+**Docker: Port already in use**
 ```bash
-# Docker Compose logs
-docker-compose logs -f
-
-# Application logs only
-docker-compose logs -f inigma
-
-# Nginx logs only
-docker-compose logs -f nginx
+# Change ports in docker-compose.yml
+ports:
+  - "8081:8080"  # Instead of 8080:8080
+  - "8444:8443"  # Instead of 8443:8443
 ```
+
+**Cloudflare: Rate limiting not working**
+- Verify KV namespace ID in wrangler.toml
+- Check binding in Cloudflare Dashboard → Workers → Settings → Bindings
+- Review logs for "Rate limit KV not configured" warnings
+
+**Cloudflare: Deployment fails**
+- Check GitHub Secrets are set correctly
+- Review GitHub Actions logs for detailed errors
+- Ensure D1 database exists and ID matches wrangler.toml
+
+## License
+
+MIT License - See LICENSE file for details
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+3. Make changes and test locally
+4. Submit a pull request
 
-## License
+## Support
 
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
-
-### GNU General Public License v3.0
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-### Key Points
-
-- **Freedom to use**: You can use this software for any purpose
-- **Freedom to study**: You can study how the program works and adapt it to your needs
-- **Freedom to share**: You can redistribute copies to help others
-- **Freedom to improve**: You can improve the program and release your improvements to the public
-
-### Commercial Use
-
-This software can be used commercially, but any modifications or derivative works must also be released under the GPL-3.0 license (copyleft provision).
-
-For the full license text, see the [LICENSE](LICENSE) file in this repository or visit <https://www.gnu.org/licenses/gpl-3.0.html>.
+For issues and questions:
+- GitHub Issues: [Create an issue](https://github.com/link0ln/inigma/issues)
+- Security concerns: Report privately via GitHub Security tab

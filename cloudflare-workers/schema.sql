@@ -1,5 +1,5 @@
--- Инициализация базы данных D1 для Inigma
--- Выполните эти команды для создания таблиц в вашей D1 базе данных
+-- D1 Database initialization for Inigma
+-- Execute these commands to create tables in your D1 database
 
 CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
--- Создание индексов для оптимизации запросов
+-- Create indexes for query optimization
 CREATE INDEX IF NOT EXISTS idx_messages_uid ON messages(uid);
 CREATE INDEX IF NOT EXISTS idx_messages_creator_uid ON messages(creator_uid);
 CREATE INDEX IF NOT EXISTS idx_messages_ttl ON messages(ttl);
