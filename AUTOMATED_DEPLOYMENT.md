@@ -2,7 +2,7 @@
 
 ## 🎯 Что сделано
 
-Весь deployment **полностью автоматизирован** через GitHub Actions. Никаких ручных команд не требуется!
+Deployment **автоматизирован** через GitHub Actions. После однократной настройки KV namespace - всё работает автоматически!
 
 ## 🚀 Как работает
 
@@ -11,50 +11,43 @@
 ```mermaid
 graph LR
     A[Push to main] --> B[GitHub Actions]
-    B --> C[Check KV Namespace]
-    C --> D{Exists?}
-    D -->|No| E[Create KV]
-    D -->|Yes| F[Get existing ID]
-    E --> G[Update wrangler.toml]
-    F --> G
-    G --> H[Apply D1 Migrations]
-    H --> I[Build Worker]
-    I --> J[Deploy to Cloudflare]
-    J --> K[✅ Live!]
+    B --> C[Apply D1 Migrations]
+    C --> D[Build Worker]
+    D --> E[Deploy to Cloudflare]
+    E --> F[✅ Live!]
 ```
 
 ### Шаги workflow:
 
-1. **Setup KV Namespace** (идемпотентно)
-   - Проверяет существование KV namespace
-   - Создаёт если не существует
-   - Извлекает ID (новый или существующий)
-
-2. **Update wrangler.toml**
-   - Динамически раскомментирует KV config
-   - Подставляет реальный KV ID
-   - Готовит конфиг для deploy
-
-3. **Apply D1 Migrations**
+1. **Apply D1 Migrations** (идемпотентно)
    - Применяет SQL миграции к базе
-   - Идемпотентно - safe для повторного запуска
+   - Safe для повторного запуска
    - Создаёт composite indexes для performance
 
-4. **Build & Deploy**
+2. **Build & Deploy**
    - npm run build
    - npm run deploy:production
-   - Деплой на Cloudflare Workers
+   - Деплой на Cloudflare Workers с настроенным KV
 
 ## 📋 Что нужно для работы
 
-### GitHub Secrets (уже настроены)
+### 1. GitHub Secrets (уже настроены)
 
 ```
-CLOUDFLARE_API_TOKEN - API token с правами Workers/KV/D1
+CLOUDFLARE_API_TOKEN - API token с правами Workers/D1
 CLOUDFLARE_ACCOUNT_ID - ваш Cloudflare Account ID
 ```
 
-### Миграции (автоматически применяются)
+### 2. KV Namespace (ручная настройка, один раз)
+
+**Требуется создать вручную:**
+1. Создайте KV namespace через Cloudflare Dashboard или CLI с токеном с повышенными правами
+2. Обновите `cloudflare-workers/wrangler.toml` с реальным ID
+3. Commit и push
+
+Подробно: `cloudflare-workers/RATE_LIMIT_SETUP.md`
+
+### 3. Миграции (автоматически применяются)
 
 - `001_initial_schema.sql` - Базовая схема таблицы messages
 - `002_add_composite_indexes.sql` - Composite indexes для performance
@@ -82,7 +75,6 @@ Workflow запустится автоматически!
 
 Все операции **safe для повторного запуска**:
 
-- ✅ KV namespace creation - проверяет существование
 - ✅ D1 migrations - wrangler tracks applied migrations
 - ✅ Composite indexes - CREATE INDEX IF NOT EXISTS
 - ✅ Deploy - просто обновляет worker
@@ -94,12 +86,9 @@ Workflow запустится автоматически!
 ### Логи в GitHub Actions
 
 ```
-✅ Checking for existing KV namespace...
-✅ Found existing KV namespace with ID: abc123...
-✅ Updating wrangler.toml with KV namespace ID
+✅ Building project...
 ✅ Applying D1 migrations...
 ✅ No new migrations to apply (already applied)
-✅ Building project...
 ✅ Deploying to Cloudflare Workers...
 ✅ Published inigma-production
    https://inigma.idone.su
@@ -142,25 +131,25 @@ Rate limiting будет skip с warning (KV не настроен локаль�
 - Input validation
 - Security headers
 
-## 🚫 Что НЕ нужно делать вручную
+## 🚫 Что НЕ нужно делать вручную (после настройки KV)
 
-❌ npx wrangler kv:namespace create
 ❌ npx wrangler d1 migrations apply
-❌ Редактировать wrangler.toml вручную
-❌ Копировать/вставлять KV IDs
 ❌ Запоминать команды deploy
+❌ Повторно настраивать KV namespace
 
-**Всё автоматически!**
+**После первоначальной настройки KV - всё автоматически!**
 
 ## 🎉 Результат
 
 ```bash
+# Однократная настройка KV namespace (см. RATE_LIMIT_SETUP.md)
+# После этого:
 git push origin main
 # Ждём 2-3 минуты
 # ✅ Сайт обновлён: https://inigma.idone.su
 ```
 
-**Zero-touch deployment!**
+**Automated deployment после первоначальной настройки!**
 
 ---
 

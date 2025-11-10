@@ -7,50 +7,56 @@ Rate limiting использует Cloudflare KV для хранения счё�
 - Автоматическую очистку старых записей (TTL)
 - Работу на free плане Cloudflare
 
-## ✅ Автоматическая настройка (Рекомендуется)
+## 🛠️ Ручная настройка (Требуется)
 
-**Всё настраивается автоматически через GitHub Actions!**
+### Шаг 1: Создать KV Namespace
 
-При каждом push в `main` branch, GitHub Actions workflow автоматически:
-1. ✅ Проверяет существование KV namespace
-2. ✅ Создаёт KV namespace если не существует
-3. ✅ Обновляет `wrangler.toml` с правильным ID
-4. ✅ Применяет D1 миграции (composite indexes)
-5. ✅ Деплоит worker на Cloudflare
+Через Cloudflare Dashboard с токеном с повышенными привилегиями:
 
-**Никаких ручных шагов не требуется!**
+1. Зайдите в Cloudflare Dashboard → Workers & Pages → KV
+2. Нажмите "Create namespace"
+3. Название: `inigma-RATE_LIMIT_KV-production`
+4. Скопируйте созданный **Namespace ID**
 
-### Что нужно:
-
-Только убедиться что в GitHub Secrets настроены:
-- `CLOUDFLARE_API_TOKEN` - API token с правами Workers и KV
-- `CLOUDFLARE_ACCOUNT_ID` - ваш Account ID
-
-### Проверка deployment:
-
-После merge в `main` или ручного запуска workflow через Actions → Deploy to Cloudflare Workers → Run workflow
-
-Логи покажут:
-```
-Checking for existing KV namespace...
-Found existing KV namespace with ID: abc123...
-Updating wrangler.toml with KV namespace ID: abc123...
-Applying D1 migrations...
-✨ Successfully deployed!
+Или через CLI (если есть токен с правами):
+```bash
+npx wrangler kv namespace create "RATE_LIMIT_KV" --env production
+# Вывод: ✨ Success! Created KV namespace ...
+# Скопируйте ID из вывода
 ```
 
-## 🛠️ Ручная настройка (Опционально)
+### Шаг 2: Обновить wrangler.toml
 
-Если хотите настроить локально для development:
+Откройте `cloudflare-workers/wrangler.toml` и замените `YOUR_PROD_KV_ID` на реальный ID:
+
+```toml
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "abc123456789..."  # ← Ваш настоящий ID
+```
+
+### Шаг 3: Commit и Push
 
 ```bash
-# Development namespace (один раз)
-npx wrangler kv namespace create "RATE_LIMIT_KV" --env development
+git add cloudflare-workers/wrangler.toml
+git commit -m "chore: Configure KV namespace for rate limiting"
+git push origin main
+```
 
-# Раскомментировать в wrangler.toml и вставить ID
-# [[env.development.kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "YOUR_DEV_KV_ID"
+GitHub Actions автоматически задеплоит с rate limiting!
+
+## Development Environment (Опционально)
+
+Для локальной разработки можно не настраивать KV - rate limiting автоматически отключится:
+
+```
+Rate limit KV not configured - skipping rate limit check
+```
+
+Если хотите тестировать локально:
+```bash
+npx wrangler kv namespace create "RATE_LIMIT_KV" --env development
+# Обновите [env.development.kv_namespaces] в wrangler.toml
 ```
 
 ## Rate Limit Configuration
@@ -74,12 +80,12 @@ const RATE_LIMITS = {
 ## Testing Rate Limits
 
 ```bash
-# Test locally (without KV - rate limiting будет skip)
+# Test locally (без KV - rate limiting будет skip)
 npm run dev
 
-# Test on deployed worker
+# Test на deployed worker
 for i in {1..15}; do
-  curl https://inigma-dev.idone.su/api/create -X POST
+  curl https://inigma.idone.su/api/create -X POST -H "Content-Type: application/json" -d '{}'
 done
 ```
 
@@ -102,16 +108,6 @@ X-RateLimit-Remaining: 7
 X-RateLimit-Reset: 1699876543000
 ```
 
-## Optional: Skip Rate Limiting for Development
-
-Если KV namespace не настроен, rate limiting автоматически отключается с warning в логах:
-
-```
-Rate limit KV not configured - skipping rate limit check
-```
-
-Это удобно для локальной разработки без необходимости настройки KV.
-
 ## Monitoring
 
 Мониторинг rate limiting в Cloudflare Dashboard:
@@ -123,10 +119,10 @@ Rate limit KV not configured - skipping rate limit check
 
 **Problem:** Rate limiting не работает
 ```bash
-# Check KV binding
-npx wrangler kv:namespace list
+# Проверьте что KV namespace настроен в wrangler.toml
+cat cloudflare-workers/wrangler.toml | grep -A 2 "kv_namespaces"
 
-# Check deployment
+# Проверьте deployment logs
 npx wrangler tail --env production
 ```
 
