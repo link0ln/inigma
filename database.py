@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import sqlite3
-import json
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
@@ -81,7 +80,8 @@ class DatabaseManager:
                 )
             """)
             
-            # Create index for efficient queries
+            # Create indexes for efficient queries
+            # Single-column indexes
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_messages_uid ON messages(uid)
             """)
@@ -90,6 +90,25 @@ class DatabaseManager:
             """)
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_messages_ttl ON messages(ttl)
+            """)
+
+            # Composite indexes for better performance
+            # Optimizes list_user_secrets query
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_messages_uid_ttl_created
+                ON messages(uid, ttl, created_at DESC)
+            """)
+
+            # Optimizes list_pending_secrets query
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_messages_creator_uid_ttl
+                ON messages(creator_uid, uid, ttl)
+            """)
+
+            # Optimizes cleanup_expired_messages query
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_messages_ttl_created_cleanup
+                ON messages(ttl, created_at)
             """)
             
             conn.commit()
