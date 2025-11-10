@@ -2,6 +2,10 @@
  * Validation utility functions
  */
 
+// Constants for validation
+const MAX_LENGTH = 100;
+const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+
 /**
  * Validate message ID format (matching Python version)
  */
@@ -23,7 +27,6 @@ export function isValidUid(uid) {
 export function isValidCustomName(name) {
   if (typeof name !== 'string') return false;
 
-  const MAX_LENGTH = 100;
   if (name.length > MAX_LENGTH) {
     console.warn(`Custom name too long: ${name.length} chars (max: ${MAX_LENGTH})`);
     return false;
@@ -48,7 +51,6 @@ export function isValidEncryptedData(data) {
   }
 
   // 2MB limit (base64 encoded data)
-  const MAX_SIZE = 2 * 1024 * 1024; // 2MB
   if (data.length > MAX_SIZE) {
     console.warn(`Encrypted data too large: ${data.length} bytes (max: ${MAX_SIZE})`);
     return false;
