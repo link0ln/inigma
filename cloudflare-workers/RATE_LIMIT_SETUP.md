@@ -7,49 +7,50 @@ Rate limiting использует Cloudflare KV для хранения счё�
 - Автоматическую очистку старых записей (TTL)
 - Работу на free плане Cloudflare
 
-## Step 1: Create KV Namespaces
+## ✅ Автоматическая настройка (Рекомендуется)
 
-Создайте два KV namespace - один для development, один для production:
+**Всё настраивается автоматически через GitHub Actions!**
+
+При каждом push в `main` branch, GitHub Actions workflow автоматически:
+1. ✅ Проверяет существование KV namespace
+2. ✅ Создаёт KV namespace если не существует
+3. ✅ Обновляет `wrangler.toml` с правильным ID
+4. ✅ Применяет D1 миграции (composite indexes)
+5. ✅ Деплоит worker на Cloudflare
+
+**Никаких ручных шагов не требуется!**
+
+### Что нужно:
+
+Только убедиться что в GitHub Secrets настроены:
+- `CLOUDFLARE_API_TOKEN` - API token с правами Workers и KV
+- `CLOUDFLARE_ACCOUNT_ID` - ваш Account ID
+
+### Проверка deployment:
+
+После merge в `main` или ручного запуска workflow через Actions → Deploy to Cloudflare Workers → Run workflow
+
+Логи покажут:
+```
+Checking for existing KV namespace...
+Found existing KV namespace with ID: abc123...
+Updating wrangler.toml with KV namespace ID: abc123...
+Applying D1 migrations...
+✨ Successfully deployed!
+```
+
+## 🛠️ Ручная настройка (Опционально)
+
+Если хотите настроить локально для development:
 
 ```bash
-# Development namespace
-npx wrangler kv:namespace create "RATE_LIMIT_KV" --env development
+# Development namespace (один раз)
+npx wrangler kv namespace create "RATE_LIMIT_KV" --env development
 
-# Production namespace
-npx wrangler kv:namespace create "RATE_LIMIT_KV" --env production
-```
-
-Команды выведут ID для каждого namespace. Например:
-```
-✨ Success! Created KV namespace inigma-RATE_LIMIT_KV-development
-Add the following to your wrangler.toml:
-id = "abc123def456..."
-```
-
-## Step 2: Update wrangler.toml
-
-Замените placeholders в `wrangler.toml`:
-
-```toml
-# Development
-[[env.development.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "YOUR_DEV_KV_ID"  # ← Replace with actual ID
-
-# Production
-[[env.production.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "YOUR_PROD_KV_ID"  # ← Replace with actual ID
-```
-
-## Step 3: Deploy
-
-```bash
-# Deploy to development
-npm run deploy:development
-
-# Deploy to production
-npm run deploy:production
+# Раскомментировать в wrangler.toml и вставить ID
+# [[env.development.kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "YOUR_DEV_KV_ID"
 ```
 
 ## Rate Limit Configuration

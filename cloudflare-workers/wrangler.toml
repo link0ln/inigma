@@ -14,9 +14,11 @@ database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # KV namespace for rate limiting (development)
-[[env.development.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_DEV_KV_ID"
+# IMPORTANT: Create KV namespace first, then uncomment and update ID
+# Command: npx wrangler kv namespace create "RATE_LIMIT_KV" --env development
+# [[env.development.kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "YOUR_DEV_KV_ID"
 
 # Environment variables for development
 [env.development.vars]
@@ -36,9 +38,12 @@ database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # KV namespace for rate limiting (production)
-[[env.production.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_PROD_KV_ID"
+# IMPORTANT: Create KV namespace first, then uncomment and update ID
+# Command: npx wrangler kv namespace create "RATE_LIMIT_KV" --env production
+# Then uncomment the lines below and replace YOUR_PROD_KV_ID with the actual ID
+# [[env.production.kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "YOUR_PROD_KV_ID"
 
 # Переменные окружения
 [env.production.vars]
