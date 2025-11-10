@@ -18,16 +18,49 @@ export function isValidUid(uid) {
 
 /**
  * Validate custom name (matching Python version)
+ * Max 100 characters
  */
 export function isValidCustomName(name) {
-  return typeof name === 'string' && name.length <= 100;
+  if (typeof name !== 'string') return false;
+
+  const MAX_LENGTH = 100;
+  if (name.length > MAX_LENGTH) {
+    console.warn(`Custom name too long: ${name.length} chars (max: ${MAX_LENGTH})`);
+    return false;
+  }
+
+  return true;
 }
 
 /**
  * Validate encrypted data format and size
+ * Max 2MB for encrypted message (reasonable for text-based secrets)
  */
 export function isValidEncryptedData(data) {
-  return typeof data === 'string' && data.length > 0 && data.length <= 2000000; // 2MB limit
+  if (typeof data !== 'string') {
+    console.warn('Invalid encrypted data type:', typeof data);
+    return false;
+  }
+
+  if (data.length === 0) {
+    console.warn('Empty encrypted data');
+    return false;
+  }
+
+  // 2MB limit (base64 encoded data)
+  const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+  if (data.length > MAX_SIZE) {
+    console.warn(`Encrypted data too large: ${data.length} bytes (max: ${MAX_SIZE})`);
+    return false;
+  }
+
+  // Base64 validation (optional but recommended)
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data)) {
+    console.warn('Invalid base64 format');
+    return false;
+  }
+
+  return true;
 }
 
 /**

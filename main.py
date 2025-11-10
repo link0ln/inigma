@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 import os
-import json
 import logging
 import secrets
 import time
 import html
 import re
-from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, Response, Form
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, validator
@@ -196,19 +194,6 @@ def generate_random_string(length: int = 25) -> str:
     """Generate cryptographically secure random string"""
     logger.debug(f"Generating random string of length {length}")
     return secrets.token_urlsafe(length)[:length]
-
-def sanitize_text(text: str) -> str:
-    """Sanitize text input to prevent XSS"""
-    if not isinstance(text, str):
-        return ""
-    
-    # HTML escape the text
-    sanitized = html.escape(text)
-    
-    # Remove any remaining dangerous characters
-    sanitized = re.sub(r'[<>"/\\]', '', sanitized)
-    
-    return sanitized[:1000]  # Limit length
 
 def sanitize_custom_name(name: str) -> str:
     """Sanitize custom name input"""

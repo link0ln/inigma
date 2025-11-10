@@ -13,6 +13,11 @@ binding = "INIGMA_DB"
 database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
+# KV namespace for rate limiting (development)
+[[env.development.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_DEV_KV_ID"
+
 # Environment variables for development
 [env.development.vars]
 DOMAIN = "inigma-dev.idone.su"
@@ -29,6 +34,11 @@ routes = [ { pattern = "inigma.idone.su", custom_domain = true } ]
 binding = "INIGMA_DB"
 database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
+
+# KV namespace for rate limiting (production)
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_PROD_KV_ID"
 
 # Переменные окружения
 [env.production.vars]
