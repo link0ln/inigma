@@ -3,6 +3,16 @@ main = "index.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Observability configuration (logs)
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
 # Development environment
 [env.development]
 routes = [ { pattern = "inigma-dev.idone.su", custom_domain = true } ]
