@@ -161,10 +161,15 @@ export async function checkRateLimit(request, env) {
 /**
  * Add rate limit headers to response
  */
-export function addRateLimitHeaders(response, rateLimit) {
+export function addRateLimitHeaders(response, rateLimit, request) {
   const headers = new Headers(response.headers);
 
-  headers.set('X-RateLimit-Limit', RATE_LIMITS[new URL(response.url).pathname]?.requests || RATE_LIMITS['default'].requests);
+  // Get endpoint from request to determine limit
+  const url = new URL(request.url);
+  const endpoint = url.pathname;
+  const config = RATE_LIMITS[endpoint] || RATE_LIMITS['default'];
+
+  headers.set('X-RateLimit-Limit', config.requests.toString());
   headers.set('X-RateLimit-Remaining', rateLimit.remaining.toString());
   headers.set('X-RateLimit-Reset', rateLimit.resetAt.toString());
 

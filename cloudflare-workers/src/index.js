@@ -54,7 +54,7 @@ export default {
       }
 
       // Add rate limit headers to successful responses
-      return addRateLimitHeaders(response, rateLimit);
+      return addRateLimitHeaders(response, rateLimit, request);
     }
 
     // Non-API routes (HTML pages) - no rate limiting

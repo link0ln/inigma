@@ -48,9 +48,9 @@ database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # KV namespace for rate limiting (production)
-# Configured via Cloudflare Dashboard:
-# - KV Namespace: inigma-rate-limit
-# - Binding name: INIGMA_KV
+[[env.production.kv_namespaces]]
+binding = "INIGMA_KV"
+id = "32a3b5af57e14ad99d07ac3965957fee"
 
 # Переменные окружения
 [env.production.vars]
