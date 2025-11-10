@@ -48,11 +48,9 @@ database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # KV namespace for rate limiting (production)
-# IMPORTANT: Replace YOUR_KV_NAMESPACE_ID with actual ID from Dashboard
-# To find ID: Dashboard → Workers & Pages → KV → inigma-rate-limit
 [[env.production.kv_namespaces]]
 binding = "INIGMA_KV"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "32a3b5af57e14ad99d07ac3965957fee"
 
 # Переменные окружения
 [env.production.vars]
