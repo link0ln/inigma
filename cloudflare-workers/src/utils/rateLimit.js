@@ -65,7 +65,7 @@ function getRateLimitKey(request, endpoint) {
  */
 export async function checkRateLimit(request, env) {
   // Skip rate limiting if KV is not configured (local development)
-  if (!env.RATE_LIMIT_KV) {
+  if (!env.INIGMA_KV) {
     console.warn('Rate limit KV not configured - skipping rate limit check');
     return { allowed: true, remaining: 999, resetAt: Date.now() + 60000 };
   }
@@ -81,7 +81,7 @@ export async function checkRateLimit(request, env) {
 
   try {
     // Get current count from KV
-    const currentData = await env.RATE_LIMIT_KV.get(key, { type: 'json' });
+    const currentData = await env.INIGMA_KV.get(key, { type: 'json' });
 
     const now = Date.now();
     const windowMs = config.window * 1000;
@@ -94,7 +94,7 @@ export async function checkRateLimit(request, env) {
       };
 
       // Store with TTL (auto-cleanup)
-      await env.RATE_LIMIT_KV.put(key, JSON.stringify(newData), {
+      await env.INIGMA_KV.put(key, JSON.stringify(newData), {
         expirationTtl: config.window + 10 // Add 10s buffer
       });
 
@@ -113,7 +113,7 @@ export async function checkRateLimit(request, env) {
         resetAt: now + windowMs
       };
 
-      await env.RATE_LIMIT_KV.put(key, JSON.stringify(newData), {
+      await env.INIGMA_KV.put(key, JSON.stringify(newData), {
         expirationTtl: config.window + 10
       });
 
@@ -141,7 +141,7 @@ export async function checkRateLimit(request, env) {
       resetAt: currentData.resetAt
     };
 
-    await env.RATE_LIMIT_KV.put(key, JSON.stringify(newData), {
+    await env.INIGMA_KV.put(key, JSON.stringify(newData), {
       expirationTtl: config.window + 10
     });
 
