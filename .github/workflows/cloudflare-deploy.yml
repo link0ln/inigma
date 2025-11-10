@@ -30,6 +30,67 @@ jobs:
         working-directory: ./cloudflare-workers
         run: npm run build
 
+      - name: Setup KV Namespace for Rate Limiting
+        working-directory: ./cloudflare-workers
+        run: |
+          # Check if KV namespace exists, if not create it
+          echo "Checking for existing KV namespace..."
+
+          # List all KV namespaces and check if RATE_LIMIT_KV exists
+          KV_LIST=$(npx wrangler kv namespace list 2>/dev/null || echo "[]")
+
+          # Try to find existing namespace by title
+          KV_ID=$(echo "$KV_LIST" | jq -r '.[] | select(.title | contains("inigma-RATE_LIMIT_KV-production")) | .id' | head -n 1)
+
+          if [ -z "$KV_ID" ]; then
+            echo "KV namespace not found. Creating new one..."
+            # Create KV namespace and capture output
+            CREATE_OUTPUT=$(npx wrangler kv namespace create "RATE_LIMIT_KV" --env production 2>&1)
+            echo "$CREATE_OUTPUT"
+
+            # Extract ID from output (format: id = "abc123...")
+            KV_ID=$(echo "$CREATE_OUTPUT" | grep -oP 'id = "\K[^"]+' | head -n 1)
+
+            if [ -z "$KV_ID" ]; then
+              echo "Failed to extract KV ID from output"
+              echo "Output was: $CREATE_OUTPUT"
+              exit 1
+            fi
+
+            echo "Created new KV namespace with ID: $KV_ID"
+          else
+            echo "Found existing KV namespace with ID: $KV_ID"
+          fi
+
+          # Save KV_ID for next steps
+          echo "KV_NAMESPACE_ID=$KV_ID" >> $GITHUB_ENV
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Update wrangler.toml with KV Namespace ID
+        working-directory: ./cloudflare-workers
+        run: |
+          echo "Updating wrangler.toml with KV namespace ID: $KV_NAMESPACE_ID"
+
+          # Uncomment and update KV namespace configuration
+          sed -i 's/# \[\[env\.production\.kv_namespaces\]\]/[[env.production.kv_namespaces]]/g' wrangler.toml
+          sed -i 's/# binding = "RATE_LIMIT_KV"/binding = "RATE_LIMIT_KV"/g' wrangler.toml
+          sed -i "s/# id = \"YOUR_PROD_KV_ID\"/id = \"$KV_NAMESPACE_ID\"/g" wrangler.toml
+
+          echo "Updated wrangler.toml:"
+          grep -A 3 "env.production.kv_namespaces" wrangler.toml || echo "KV config not found in output"
+
+      - name: Apply D1 Database Migrations
+        working-directory: ./cloudflare-workers
+        run: |
+          echo "Applying D1 migrations..."
+          # wrangler d1 migrations apply is idempotent - safe to run multiple times
+          npx wrangler d1 migrations apply INIGMA_DB --env production --remote || echo "No new migrations to apply"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy to Cloudflare Workers (Production)
         working-directory: ./cloudflare-workers
         run: npm run deploy:production

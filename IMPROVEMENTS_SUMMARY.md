@@ -285,17 +285,35 @@ npx wrangler d1 migrations apply INIGMA_DB --env production
 
 ## 📦 Deployment Instructions
 
-### Cloudflare Workers (Production)
+### ✅ Автоматический Deploy через GitHub Actions (Рекомендуется)
+
+**Всё настроено автоматически!** При push в `main` branch:
+
+1. ✅ GitHub Actions проверяет/создаёт KV namespace для rate limiting
+2. ✅ Автоматически обновляет `wrangler.toml` с KV ID
+3. ✅ Применяет D1 миграции (идемпотентно - safe для повторного запуска)
+4. ✅ Build и deploy на Cloudflare Workers
+
+**Требуется только:**
+- GitHub Secrets настроены: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+
+**Для ручного запуска workflow:**
+- GitHub → Actions → "Deploy to Cloudflare Workers" → Run workflow
+
+**Никаких ручных команд не нужно!**
+
+### Cloudflare Workers (Ручной Deploy - Опционально)
+
+Если нужен ручной deploy локально:
 
 ```bash
 cd cloudflare-workers
 
-# 1. Setup KV namespaces (first time only)
-npx wrangler kv:namespace create "RATE_LIMIT_KV" --env production
-# Copy the ID to wrangler.toml
+# 1. Setup KV namespaces (в GitHub Actions делается автоматически)
+npx wrangler kv namespace create "RATE_LIMIT_KV" --env production
 
-# 2. Apply database migrations
-npx wrangler d1 migrations apply INIGMA_DB --env production
+# 2. Apply database migrations (в GitHub Actions делается автоматически)
+npx wrangler d1 migrations apply INIGMA_DB --env production --remote
 
 # 3. Update dependencies
 npm install
