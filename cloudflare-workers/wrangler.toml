@@ -14,10 +14,10 @@ database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # KV namespace for rate limiting (development)
-# IMPORTANT: Create KV namespace first, then uncomment and update ID
-# Command: npx wrangler kv namespace create "RATE_LIMIT_KV" --env development
+# Optional: Configure via Dashboard with binding name INIGMA_KV
+# Or add manually if needed:
 # [[env.development.kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
+# binding = "INIGMA_KV"
 # id = "YOUR_DEV_KV_ID"
 
 # Environment variables for development
@@ -38,13 +38,9 @@ database_name = "inigma-database"
 database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 
 # KV namespace for rate limiting (production)
-# MANUAL SETUP REQUIRED:
-# 1. Create KV namespace via Cloudflare Dashboard or CLI with elevated permissions
-# 2. Uncomment the lines below and replace YOUR_PROD_KV_ID with actual namespace ID
-# 3. Commit and push to trigger deployment
-[[env.production.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "YOUR_PROD_KV_ID"
+# Configured via Cloudflare Dashboard:
+# - KV Namespace: inigma-rate-limit
+# - Binding name: INIGMA_KV
 
 # Переменные окружения
 [env.production.vars]
