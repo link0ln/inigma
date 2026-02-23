@@ -3,14 +3,14 @@
  */
 
 import { getCorsHeaders } from '../../utils/cors.js';
-import { 
-  isValidMessageId, 
-  isValidUid, 
-  isValidEncryptedData, 
-  isValidIv, 
-  isValidSalt 
+import {
+  isValidMessageId,
+  isValidUid,
+  isValidEncryptedData,
+  isValidIv,
+  isValidSalt
 } from '../../utils/validation.js';
-import { retrieveMessage, updateMessageOwner } from '../../utils/database.js';
+import { updateMessageOwner } from '../../utils/database.js';
 
 export async function handleUpdateOwner(body, env, request) {
   const { view, uid, encrypted_message, iv, salt } = body;
@@ -75,43 +75,15 @@ export async function handleUpdateOwner(body, env, request) {
     });
   }
   
-  // Retrieve current data
-  const data = await retrieveMessage(env, view);
-  
-  if (!data) {
-    return new Response(JSON.stringify({
-      status: 'failed',
-      message: 'No such secret',
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...getCorsHeaders(request),
-      },
-    });
-  }
-  
-  // Check if already owned
-  if (data.uid !== '') {
-    return new Response(JSON.stringify({
-      status: 'failed',
-      message: 'Secret already owned',
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...getCorsHeaders(request),
-      },
-    });
-  }
-  
-  // Update message owner using D1
+  // Atomically update owner — SQL WHERE uid = '' prevents race conditions
   const success = await updateMessageOwner(env, view, uid, encrypted_message, iv, salt);
-  
+
   if (!success) {
     return new Response(JSON.stringify({
       status: 'failed',
-      message: 'Failed to update secret',
+      message: 'Secret not found or already owned',
     }), {
-      status: 500,
+      status: 404,
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),
