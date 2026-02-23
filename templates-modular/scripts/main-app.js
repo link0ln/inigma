@@ -105,42 +105,6 @@ function app() {
             }
         },
         
-        async regenerateCryptoSystem() {
-            if (!confirm('This will regenerate your entire crypto system. You will lose access to all current secrets. Continue?')) {
-                return;
-            }
-            
-            try {
-                // Clear IndexedDB keys
-                if (this.cryptoSystem.keyStorage) {
-                    await this.cryptoSystem.keyStorage.clearKeys();
-                }
-                
-                // Clear localStorage
-                localStorage.removeItem('inigma_encrypted_symmetric_key');
-                
-                // Reinitialize crypto system
-                this.cryptoSystem = await initializeCryptoSystem();
-                
-                // Update User ID
-                await this.updateUserIdFromSymmetricKey();
-                
-                // Show success message
-                this.toastMessage = 'Crypto system regenerated!';
-                this.showToast = true;
-                setTimeout(() => this.showToast = false, 3000);
-                
-                // Reload secrets (should be empty now)
-                this.loadSecrets();
-                this.loadPendingSecrets();
-                
-            } catch (error) {
-                console.error('Failed to regenerate crypto system:', error);
-                alert('Failed to regenerate crypto system: ' + error.message);
-            }
-        },
-        
-        
         async processMessage() {
             if (!this.message || this.processing) return;
             
