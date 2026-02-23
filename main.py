@@ -59,9 +59,13 @@ def build_template_from_modular(template_name):
         with open(file_path, 'r') as f:
             return f.read()
     
-    # Replace all {{> filename }} patterns
-    content = re.sub(r'\{\{>\s*([^}]+)\s*\}\}', replace_include, content)
-    
+    # Recursively resolve includes until none remain (max 10 levels)
+    for _ in range(10):
+        new_content = re.sub(r'\{\{>\s*([^}]+)\s*\}\}', replace_include, content)
+        if new_content == content:
+            break
+        content = new_content
+
     return content
 
 app = FastAPI(title="Inigma - Secure Message Sharing", lifespan=lifespan)
@@ -460,71 +464,62 @@ async def view_message(request: ViewMessageRequest):
     # Check if message exists
     if not data:
         logger.warning(f"Message not found: {request.view}")
-        return {
-            "message": "No such hash!",
-            "redirect_root": "true"
-        }
-    
+        return JSONResponse(
+            status_code=404,
+            content={"message": "No such hash!", "redirect_root": "true"}
+        )
+
     # Check TTL
     current_time = get_timestamp()
     if data["ttl"] < current_time:
         logger.info(f"Message {request.view} has expired")
-        return {
-            "message": "Message has expired!",
-            "redirect_root": "true"
-        }
-    
+        return JSONResponse(
+            status_code=410,
+            content={"message": "Message has expired!", "redirect_root": "true"}
+        )
+
     # Check access permissions
     if data["uid"] == "" or data["uid"] == request.uid:
         logger.info(f"Access granted for message {request.view}")
-        
+
         # Create response with only necessary fields, excluding sensitive uid and creator_uid
-        response_data = {
+        return {
             "encrypted_message": data["encrypted_message"],
             "iv": data["iv"],
             "salt": data["salt"],
             "custom_name": data.get("custom_name", ""),
             "is_owner": data["uid"] == request.uid
         }
-        return response_data
-    
+
     logger.warning(f"Access denied for message {request.view}")
-    return {
-        "message": "Access denied!",
-        "redirect_root": "true"
-    }
+    return JSONResponse(
+        status_code=403,
+        content={"message": "Access denied!", "redirect_root": "true"}
+    )
 
 @app.post("/api/update")
 async def update_owner(request: UpdateOwnerRequest):
     """Update message owner"""
     logger.info(f"Updating owner for message {request.view}")
-    
-    # Check if message exists and is not owned
-    data = db.retrieve_message(request.view)
-    if not data:
-        logger.warning(f"Message not found for update: {request.view}")
-        return {"status": "failed", "message": "No such secret"}
-    
-    # Check if already owned
-    if data["uid"] != "":
-        logger.info(f"Message {request.view} already owned")
-        return {"status": "failed", "message": "Secret already owned"}
-    
-    # Update message owner with new encryption
+
+    # Atomically update owner — SQL WHERE uid = '' prevents race conditions
     success = db.update_message_owner(
-        request.view, 
-        request.uid, 
-        request.encrypted_message, 
-        request.iv, 
+        request.view,
+        request.uid,
+        request.encrypted_message,
+        request.iv,
         request.salt
     )
-    
+
     if success:
         logger.info(f"Successfully updated owner for message {request.view}")
         return {"status": "success", "message": "secret owned"}
     else:
-        logger.error(f"Failed to update owner for message {request.view}")
-        return {"status": "failed", "message": "Failed to update secret"}
+        logger.warning(f"Ownership update failed for message {request.view}")
+        return JSONResponse(
+            status_code=404,
+            content={"status": "failed", "message": "Secret not found or already owned"}
+        )
 
 @app.post("/api/list-pending-secrets")
 async def list_pending_secrets(request: ListSecretsRequest):
@@ -548,13 +543,16 @@ async def update_custom_name(request: UpdateCustomNameRequest):
     logger.info(f"Updating custom name for secret {request.view}")
     
     success = db.update_custom_name(request.view, request.uid, request.custom_name)
-    
+
     if success:
         logger.info(f"Successfully updated custom name for secret {request.view}")
         return {"status": "success", "message": "Custom name updated"}
     else:
         logger.warning(f"Failed to update custom name for secret {request.view}")
-        return {"status": "failed", "message": "Secret not found or access denied"}
+        return JSONResponse(
+            status_code=404,
+            content={"status": "failed", "message": "Secret not found or access denied"}
+        )
 
 @app.post("/api/delete-secret")
 async def delete_secret(request: DeleteSecretRequest):
@@ -562,13 +560,16 @@ async def delete_secret(request: DeleteSecretRequest):
     logger.info(f"Deleting secret {request.view}")
     
     success = db.delete_message(request.view, request.uid)
-    
+
     if success:
         logger.info(f"Successfully deleted secret {request.view}")
         return {"status": "success", "message": "Secret deleted"}
     else:
         logger.warning(f"Failed to delete secret {request.view}")
-        return {"status": "failed", "message": "Secret not found or access denied"}
+        return JSONResponse(
+            status_code=404,
+            content={"status": "failed", "message": "Secret not found or access denied"}
+        )
 
 @app.get("/health")
 async def health_check():
