@@ -1,6 +1,6 @@
-// Alpine.js view app
-function viewApp() {
-    return {
+// Alpine.js view app — registered via Alpine.data() for CSP compatibility
+document.addEventListener('alpine:init', () => {
+    Alpine.data('viewApp', () => ({
         loading: true,
         error: false,
         errorMessage: '',
@@ -188,6 +188,10 @@ function viewApp() {
             await navigator.clipboard.writeText(this.decryptedMessage);
             this.showToast = true;
             setTimeout(() => this.showToast = false, 3000);
-        }
-    }
-}
+        },
+
+        toastText() {
+            return SecurityUtils.safeText(this.toastMessage || 'Copied to clipboard!');
+        },
+    }));
+});

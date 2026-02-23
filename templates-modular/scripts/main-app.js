@@ -1,6 +1,6 @@
-// Alpine.js app
-function app() {
-    return {
+// Alpine.js app — registered via Alpine.data() for CSP compatibility
+document.addEventListener('alpine:init', () => {
+    Alpine.data('app', () => ({
         message: '',
         customName: '',
         ttl: 30,
@@ -440,35 +440,65 @@ function app() {
             if (!confirm('This will regenerate your entire crypto system. You will lose access to all current secrets. Continue?')) {
                 return;
             }
-            
+
             try {
                 // Clear IndexedDB keys
                 if (this.cryptoSystem.keyStorage) {
                     await this.cryptoSystem.keyStorage.clearKeys();
                 }
-                
+
                 // Clear localStorage
                 localStorage.removeItem('inigma_encrypted_symmetric_key');
-                
+
                 // Reinitialize crypto system
                 this.cryptoSystem = await initializeCryptoSystem();
-                
+
                 // Update User ID
                 await this.updateUserIdFromSymmetricKey();
-                
+
                 // Show success message
                 this.toastMessage = 'Crypto system regenerated!';
                 this.showToast = true;
                 setTimeout(() => this.showToast = false, 3000);
-                
+
                 // Reload secrets (should be empty now)
                 this.loadSecrets();
                 this.loadPendingSecrets();
-                
+
             } catch (error) {
                 console.error('Failed to regenerate crypto system:', error);
                 alert('Failed to regenerate crypto system: ' + error.message);
             }
         },
-    }
-}
+
+        // CSP-safe helper methods (replace optional chaining and multi-statement handlers)
+        openImportKeyModal() {
+            this.showImportKeyModal = true;
+            this.importSymmetricKey = '';
+        },
+
+        closeSuccessModal() {
+            this.showModal = false;
+            this.message = '';
+            this.customName = '';
+            this.loadSecrets();
+            this.loadPendingSecrets();
+        },
+
+        getDeleteTargetName() {
+            return (this.secretToDelete && this.secretToDelete.custom_name) || 'Untitled Secret';
+        },
+
+        isDeleteTargetDeleting() {
+            return this.secretToDelete && this.deletingSecrets[this.secretToDelete.id] || false;
+        },
+
+        getDeleteButtonText() {
+            return this.isDeleteTargetDeleting() ? 'Deleting...' : 'Delete';
+        },
+
+        handleCustomNameInput(value) {
+            this.customName = SecurityUtils.sanitizeCustomName(value);
+        },
+    }));
+});

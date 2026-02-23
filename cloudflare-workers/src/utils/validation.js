@@ -110,7 +110,7 @@ export function addSecurityHeaders(headers = {}) {
     ...headers,
     "Content-Security-Policy":
       "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; " +
+      "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; " +
       "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
       "font-src 'self' https://cdnjs.cloudflare.com; " +
       "img-src 'self' data:; " +
