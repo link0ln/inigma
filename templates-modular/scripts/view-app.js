@@ -133,7 +133,7 @@ function viewApp() {
                 
                 // Re-encrypt the message with user's main symmetric key
                 const salt = window.crypto.getRandomValues(new Uint8Array(16));
-                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
                 const encrypted = await encrypt(message, salt, iv, symmetricKey);
                 
                 const response = await fetch('/api/update', {

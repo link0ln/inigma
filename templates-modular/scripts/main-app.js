@@ -151,7 +151,7 @@ function app() {
                 const secretSymmetricKey = generateSymmetricKey();
                 
                 const salt = window.crypto.getRandomValues(new Uint8Array(16));
-                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
                 
                 const encrypted = await encrypt(this.message, salt, iv, secretSymmetricKey);
                 
