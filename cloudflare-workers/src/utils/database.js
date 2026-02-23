@@ -54,28 +54,25 @@ export async function retrieveMessage(env, messageId) {
  */
 export async function updateMessageOwner(env, messageId, uid, encryptedMessage, iv, salt) {
   try {
-    const stmt = env.INIGMA_DB.prepare(`
-      UPDATE messages 
+    const updateStmt = env.INIGMA_DB.prepare(`
+      UPDATE messages
       SET uid = ?, encrypted_message = ?, iv = ?, salt = ?
       WHERE id = ? AND uid = ''
-    `);
-    
-    const result = await stmt.bind(uid, encryptedMessage, iv, salt, messageId).run();
-    console.log(`Update message owner result: success=${result.success}, changes=${result.changes}`);
-    
-    // D1 sometimes reports changes as 0 even when successful, so let's verify
-    if (result.success !== false) {
-      // Double-check by retrieving the message
-      const checkStmt = env.INIGMA_DB.prepare('SELECT uid FROM messages WHERE id = ?');
-      const checkResult = await checkStmt.bind(messageId).first();
-      
-      if (checkResult && checkResult.uid === uid) {
-        console.log(`Message owner update verified`);
-        return true;
-      }
+    `).bind(uid, encryptedMessage, iv, salt, messageId);
+
+    const checkStmt = env.INIGMA_DB.prepare(
+      'SELECT uid FROM messages WHERE id = ?'
+    ).bind(messageId);
+
+    const [updateResult, checkResult] = await env.INIGMA_DB.batch([updateStmt, checkStmt]);
+    console.log(`Update message owner result: success=${updateResult.success}, changes=${updateResult.changes}`);
+
+    if (checkResult.results.length > 0 && checkResult.results[0].uid === uid) {
+      console.log(`Message owner update verified`);
+      return true;
     }
-    
-    return result.changes > 0;
+
+    return updateResult.changes > 0;
   } catch (error) {
     console.error('Error updating message owner:', error);
     return false;
@@ -87,28 +84,25 @@ export async function updateMessageOwner(env, messageId, uid, encryptedMessage, 
  */
 export async function updateCustomName(env, messageId, uid, customName) {
   try {
-    const stmt = env.INIGMA_DB.prepare(`
-      UPDATE messages 
+    const updateStmt = env.INIGMA_DB.prepare(`
+      UPDATE messages
       SET custom_name = ?
       WHERE id = ? AND uid = ?
-    `);
-    
-    const result = await stmt.bind(customName, messageId, uid).run();
-    console.log(`Update custom name result: success=${result.success}, changes=${result.changes}`);
-    
-    // D1 sometimes reports changes as 0 even when successful, so let's verify
-    if (result.success !== false) {
-      // Double-check by retrieving the message
-      const checkStmt = env.INIGMA_DB.prepare('SELECT custom_name FROM messages WHERE id = ? AND uid = ?');
-      const checkResult = await checkStmt.bind(messageId, uid).first();
-      
-      if (checkResult && checkResult.custom_name === customName) {
-        console.log(`Custom name update verified`);
-        return true;
-      }
+    `).bind(customName, messageId, uid);
+
+    const checkStmt = env.INIGMA_DB.prepare(
+      'SELECT custom_name FROM messages WHERE id = ? AND uid = ?'
+    ).bind(messageId, uid);
+
+    const [updateResult, checkResult] = await env.INIGMA_DB.batch([updateStmt, checkStmt]);
+    console.log(`Update custom name result: success=${updateResult.success}, changes=${updateResult.changes}`);
+
+    if (checkResult.results.length > 0 && checkResult.results[0].custom_name === customName) {
+      console.log(`Custom name update verified`);
+      return true;
     }
-    
-    return result.changes > 0;
+
+    return updateResult.changes > 0;
   } catch (error) {
     console.error('Error updating custom name:', error);
     return false;
@@ -120,27 +114,24 @@ export async function updateCustomName(env, messageId, uid, customName) {
  */
 export async function deleteMessage(env, messageId, uid) {
   try {
-    const stmt = env.INIGMA_DB.prepare(`
-      DELETE FROM messages 
+    const deleteStmt = env.INIGMA_DB.prepare(`
+      DELETE FROM messages
       WHERE id = ? AND (uid = ? OR (uid = '' AND creator_uid = ?))
-    `);
-    
-    const result = await stmt.bind(messageId, uid, uid).run();
-    console.log(`Delete message result: success=${result.success}, changes=${result.changes}`);
-    
-    // D1 sometimes reports changes as 0 even when successful, so let's verify
-    if (result.success !== false) {
-      // Double-check by trying to retrieve the message
-      const checkStmt = env.INIGMA_DB.prepare('SELECT id FROM messages WHERE id = ?');
-      const checkResult = await checkStmt.bind(messageId).first();
-      
-      if (!checkResult) {
-        console.log(`Message deletion verified`);
-        return true;
-      }
+    `).bind(messageId, uid, uid);
+
+    const checkStmt = env.INIGMA_DB.prepare(
+      'SELECT id FROM messages WHERE id = ?'
+    ).bind(messageId);
+
+    const [deleteResult, checkResult] = await env.INIGMA_DB.batch([deleteStmt, checkStmt]);
+    console.log(`Delete message result: success=${deleteResult.success}, changes=${deleteResult.changes}`);
+
+    if (checkResult.results.length === 0) {
+      console.log(`Message deletion verified`);
+      return true;
     }
-    
-    return result.changes > 0;
+
+    return deleteResult.changes > 0;
   } catch (error) {
     console.error('Error deleting message:', error);
     return false;
