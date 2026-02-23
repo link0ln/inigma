@@ -17,7 +17,7 @@ COPY templates-modular/ ./templates-modular/
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER root
+USER appuser
 
 # Expose port
 EXPOSE 8000
