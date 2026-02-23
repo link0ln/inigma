@@ -140,10 +140,7 @@ export function sanitizeText(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-  
-  // Remove any remaining dangerous characters
-  sanitized = sanitized.replace(/[<>"/\\]/g, '');
-  
+
   return sanitized.slice(0, 1000); // Limit length to 1000 like Python
 }
 
