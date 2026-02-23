@@ -70,7 +70,7 @@ function app() {
                 // Generate User ID from symmetric key
                 await this.updateUserIdFromSymmetricKey();
                 
-                console.log('Crypto system initialized, UID:', this.credentials.uid);
+                console.log('Crypto system initialized, UID:', this.credentials.uid.substring(0, 8) + '...');
                 
                 // Load secrets on init
                 this.loadSecrets();

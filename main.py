@@ -336,7 +336,7 @@ async def create_message(request: CreateMessageRequest):
 @app.post("/api/view")
 async def view_message(request: ViewMessageRequest):
     """Retrieve encrypted message"""
-    logger.info(f"Viewing message {request.view} for uid {request.uid}")
+    logger.info(f"Viewing message {request.view} for uid {request.uid[:8]}...")
     
     # Retrieve message from database
     data = db.retrieve_message(request.view)
@@ -413,7 +413,7 @@ async def update_owner(request: UpdateOwnerRequest):
 @app.post("/api/list-pending-secrets")
 async def list_pending_secrets(request: ListSecretsRequest):
     """List user's pending secrets (created but not yet claimed)"""
-    logger.info(f"Listing pending secrets for creator {request.uid}")
+    logger.info(f"Listing pending secrets for creator {request.uid[:8]}...")
     
     result = db.list_pending_secrets(request.uid, request.page, request.per_page)
     return result
@@ -421,7 +421,7 @@ async def list_pending_secrets(request: ListSecretsRequest):
 @app.post("/api/list-secrets")
 async def list_user_secrets(request: ListSecretsRequest):
     """List user's secrets with pagination"""
-    logger.info(f"Listing secrets for user {request.uid}")
+    logger.info(f"Listing secrets for user {request.uid[:8]}...")
     
     result = db.list_user_secrets(request.uid, request.page, request.per_page)
     return result

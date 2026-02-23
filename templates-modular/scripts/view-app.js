@@ -39,12 +39,12 @@ function viewApp() {
                 const symmetricKey = await getDecryptedSymmetricKey(cryptoSystem.keyPair);
                 uid = await generateUserIdFromSymmetricKey(symmetricKey);
                 clearSymmetricKeyFromMemory(symmetricKey);
-                console.log('Generated UID from crypto system for view:', uid);
+                console.log('Generated UID from crypto system for view:', uid.substring(0, 8) + '...');
             } catch (error) {
                 console.error('Failed to initialize crypto system for view:', error);
                 // Fallback to a temporary UID for this session
                 uid = 'temp_' + Math.random().toString(36).substring(2, 14);
-                console.log('Using temporary UID for view:', uid);
+                console.log('Using temporary UID for view:', uid.substring(0, 8) + '...');
             }
             
             try {
