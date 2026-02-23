@@ -4,6 +4,19 @@ const { execSync } = require('child_process');
 
 console.log('Building modular Inigma for Cloudflare Workers...');
 
+// Compile TailwindCSS
+console.log('Compiling TailwindCSS...');
+try {
+  execSync('npx tailwindcss -i tailwind-input.css -o ../templates-modular/styles/tailwind-compiled.css --minify', {
+    cwd: __dirname,
+    stdio: 'pipe'
+  });
+  console.log('  ✓ TailwindCSS compiled');
+} catch (error) {
+  console.error('Failed to compile TailwindCSS:', error.stderr?.toString() || error.message);
+  process.exit(1);
+}
+
 // Get version info from Git
 function getVersionInfo() {
   try {

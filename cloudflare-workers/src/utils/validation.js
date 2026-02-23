@@ -108,10 +108,10 @@ export function sanitizeString(str) {
 export function addSecurityHeaders(headers = {}) {
   return {
     ...headers,
-    "Content-Security-Policy": 
+    "Content-Security-Policy":
       "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdnjs.cloudflare.com; " +
-      "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; " +
+      "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
       "font-src 'self' https://cdnjs.cloudflare.com; " +
       "img-src 'self' data:; " +
       "connect-src 'self'; " +
