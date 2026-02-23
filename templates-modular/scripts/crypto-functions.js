@@ -270,12 +270,13 @@ async function getDecryptedSymmetricKey(keyPair) {
     return await decryptSymmetricKey(encryptedSymmetricKey, keyPair.privateKey);
 }
 
-// Clear symmetric key from memory (for security)
+// WARNING: This function is a no-op. JavaScript strings are immutable and
+// reassigning a local parameter does not affect the caller's variable or
+// clear the original string from memory. Reliable memory clearing of JS
+// strings is not possible without Uint8Array-based key storage.
+// Kept to avoid breaking call sites.
 function clearSymmetricKeyFromMemory(symmetricKey) {
-    if (typeof symmetricKey === 'string') {
-        // Overwrite string with random data
-        symmetricKey = null;
-    }
+    symmetricKey = null;
 }
 
 async function getKeyMaterial(password) {
