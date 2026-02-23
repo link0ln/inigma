@@ -7,6 +7,7 @@ import html
 import re
 from typing import Optional, Dict, Any
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -63,7 +64,7 @@ def build_template_from_modular(template_name):
     
     return content
 
-app = FastAPI(title="Inigma - Secure Message Sharing")
+app = FastAPI(title="Inigma - Secure Message Sharing", lifespan=lifespan)
 
 # Configure CORS with target domain restrictions
 allowed_origins = [
@@ -104,6 +105,38 @@ def cleanup_database():
         logger.info(f"Scheduled cleanup completed. Deleted {deleted_count} expired messages")
     except Exception as e:
         logger.error(f"Error during scheduled cleanup: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Application lifespan: startup and shutdown logic"""
+    logger.info("Application starting up")
+
+    # Run initial cleanup
+    try:
+        db.cleanup_expired_messages()
+    except Exception as e:
+        logger.error(f"Failed to run startup cleanup: {e}")
+
+    # Schedule daily cleanup at 2:00 AM
+    scheduler.add_job(
+        cleanup_database,
+        CronTrigger(hour=2, minute=0),
+        id='daily_cleanup',
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("Scheduler started - daily cleanup scheduled for 2:00 AM")
+
+    yield
+
+    logger.info("Application shutting down")
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+            logger.info("Scheduler stopped")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {e}")
 
 
 # Data models
@@ -350,40 +383,6 @@ def add_security_headers(response: Response) -> Response:
 def get_timestamp() -> int:
     """Get current timestamp"""
     return int(time.time())
-
-@app.on_event("startup")
-async def startup_event():
-    """Run cleanup on startup and start scheduler"""
-    logger.info("Application starting up")
-    
-    # Run initial cleanup
-    try:
-        db.cleanup_expired_messages()
-    except Exception as e:
-        logger.error(f"Failed to run startup cleanup: {e}")
-    
-    # Schedule daily cleanup at 2:00 AM
-    scheduler.add_job(
-        cleanup_database,
-        CronTrigger(hour=2, minute=0),
-        id='daily_cleanup',
-        replace_existing=True
-    )
-    
-    # Start the scheduler
-    scheduler.start()
-    logger.info("Scheduler started - daily cleanup scheduled for 2:00 AM")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Shutdown cleanup"""
-    logger.info("Application shutting down")
-    try:
-        if scheduler.running:
-            scheduler.shutdown()
-            logger.info("Scheduler stopped")
-    except Exception as e:
-        logger.error(f"Error shutting down scheduler: {e}")
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
