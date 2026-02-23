@@ -66,14 +66,16 @@ export async function handleUpdateCustomName(body, env, request) {
     const sanitizedName = sanitizeString(custom_name);
     
     // Update custom name using D1
-    const success = await updateCustomName(env, view, uid, sanitizedName);
-    
-    if (!success) {
+    const result = await updateCustomName(env, view, uid, sanitizedName);
+
+    if (!result.ok) {
+      const status = result.error === 'db_error' ? 503 : 404;
+      const message = result.error === 'db_error' ? 'Service temporarily unavailable' : 'Secret not found or access denied';
       return new Response(JSON.stringify({
         status: 'failed',
-        message: 'Secret not found or access denied',
+        message,
       }), {
-        status: 404,
+        status,
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),

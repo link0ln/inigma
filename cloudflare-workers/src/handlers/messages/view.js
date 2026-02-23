@@ -34,8 +34,23 @@ export async function handleViewMessage(body, env, request) {
   }
   
   // Retrieve message data
-  const data = await retrieveMessage(env, view);
-  
+  const result = await retrieveMessage(env, view);
+
+  if (!result.ok && result.error === 'db_error') {
+    return new Response(JSON.stringify({
+      message: 'Service temporarily unavailable',
+      redirect_root: 'true',
+    }), {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getCorsHeaders(request),
+      },
+    });
+  }
+
+  const data = result.ok ? result.data : null;
+
   if (!data) {
     return new Response(JSON.stringify({
       message: 'No such hash!',

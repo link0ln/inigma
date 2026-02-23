@@ -76,14 +76,16 @@ export async function handleUpdateOwner(body, env, request) {
   }
   
   // Atomically update owner — SQL WHERE uid = '' prevents race conditions
-  const success = await updateMessageOwner(env, view, uid, encrypted_message, iv, salt);
+  const result = await updateMessageOwner(env, view, uid, encrypted_message, iv, salt);
 
-  if (!success) {
+  if (!result.ok) {
+    const statusMap = { not_found: 404, already_owned: 409, db_error: 503 };
+    const messageMap = { not_found: 'Secret not found', already_owned: 'Secret already owned', db_error: 'Service temporarily unavailable' };
     return new Response(JSON.stringify({
       status: 'failed',
-      message: 'Secret not found or already owned',
+      message: messageMap[result.error] || 'Secret not found or already owned',
     }), {
-      status: 404,
+      status: statusMap[result.error] || 404,
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),

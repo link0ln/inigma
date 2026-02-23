@@ -140,10 +140,10 @@ export async function handleCreateMessage(body, env, request) {
   };
   
   // Store in D1
-  const success = await storeMessage(env, messageId, messageData);
-  
-  if (!success) {
-    console.error(`Failed to store message for creator: ${creator_uid.substring(0, 8)}...`);
+  const result = await storeMessage(env, messageId, messageData);
+
+  if (!result.ok) {
+    console.error(`Failed to store message for creator: ${creator_uid.substring(0, 8)}...`, result.error);
     return new Response(JSON.stringify({ error: 'Failed to store message' }), {
       status: 500,
       headers: {

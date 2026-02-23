@@ -6,16 +6,22 @@ import { DEFAULT_CLEANUP_DAYS, PERMANENT_TTL } from '../constants/config.js';
 import { getTimestamp, calculateTimeRemaining } from './validation.js';
 
 /**
+ * Database result type:
+ *   { ok: true, data?: any }
+ *   { ok: false, error: 'not_found' | 'access_denied' | 'already_owned' | 'db_error', message?: string }
+ */
+
+/**
  * Store message data in D1
  */
 export async function storeMessage(env, messageId, data) {
   try {
     const stmt = env.INIGMA_DB.prepare(`
-      INSERT INTO messages 
+      INSERT INTO messages
       (id, ttl, uid, encrypted_message, iv, salt, custom_name, creator_uid)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     const result = await stmt.bind(
       messageId,
       data.ttl,
@@ -26,11 +32,13 @@ export async function storeMessage(env, messageId, data) {
       data.custom_name || '',
       data.creator_uid || ''
     ).run();
-    
-    return result.success;
+
+    return result.success
+      ? { ok: true }
+      : { ok: false, error: 'db_error', message: 'INSERT returned failure' };
   } catch (error) {
     console.error('Error storing message:', error);
-    return false;
+    return { ok: false, error: 'db_error', message: error.message };
   }
 }
 
@@ -41,11 +49,13 @@ export async function retrieveMessage(env, messageId) {
   try {
     const stmt = env.INIGMA_DB.prepare('SELECT * FROM messages WHERE id = ?');
     const result = await stmt.bind(messageId).first();
-    
-    return result || null;
+
+    return result
+      ? { ok: true, data: result }
+      : { ok: false, error: 'not_found' };
   } catch (error) {
     console.error('Error retrieving message:', error);
-    return null;
+    return { ok: false, error: 'db_error', message: error.message };
   }
 }
 
@@ -67,15 +77,18 @@ export async function updateMessageOwner(env, messageId, uid, encryptedMessage, 
     const [updateResult, checkResult] = await env.INIGMA_DB.batch([updateStmt, checkStmt]);
     console.log(`Update message owner result: success=${updateResult.success}, changes=${updateResult.changes}`);
 
-    if (checkResult.results.length > 0 && checkResult.results[0].uid === uid) {
-      console.log(`Message owner update verified`);
-      return true;
+    if (updateResult.changes > 0 || (checkResult.results.length > 0 && checkResult.results[0].uid === uid)) {
+      return { ok: true };
     }
 
-    return updateResult.changes > 0;
+    // Distinguish: message not found vs already owned
+    if (checkResult.results.length === 0) {
+      return { ok: false, error: 'not_found' };
+    }
+    return { ok: false, error: 'already_owned' };
   } catch (error) {
     console.error('Error updating message owner:', error);
-    return false;
+    return { ok: false, error: 'db_error', message: error.message };
   }
 }
 
@@ -95,17 +108,15 @@ export async function updateCustomName(env, messageId, uid, customName) {
     ).bind(messageId, uid);
 
     const [updateResult, checkResult] = await env.INIGMA_DB.batch([updateStmt, checkStmt]);
-    console.log(`Update custom name result: success=${updateResult.success}, changes=${updateResult.changes}`);
 
-    if (checkResult.results.length > 0 && checkResult.results[0].custom_name === customName) {
-      console.log(`Custom name update verified`);
-      return true;
+    if (updateResult.changes > 0 || (checkResult.results.length > 0 && checkResult.results[0].custom_name === customName)) {
+      return { ok: true };
     }
 
-    return updateResult.changes > 0;
+    return { ok: false, error: 'not_found' };
   } catch (error) {
     console.error('Error updating custom name:', error);
-    return false;
+    return { ok: false, error: 'db_error', message: error.message };
   }
 }
 
@@ -124,18 +135,15 @@ export async function deleteMessage(env, messageId, uid) {
     ).bind(messageId);
 
     const [deleteResult, checkResult] = await env.INIGMA_DB.batch([deleteStmt, checkStmt]);
-    console.log(`Delete message result: success=${deleteResult.success}, changes=${deleteResult.changes}`);
 
-    if (deleteResult.changes === 0) {
-      console.log(`Message not found or access denied`);
-      return false;
+    if (deleteResult.changes > 0) {
+      return { ok: true };
     }
 
-    console.log(`Message deletion verified`);
-    return true;
+    return { ok: false, error: 'not_found' };
   } catch (error) {
     console.error('Error deleting message:', error);
-    return false;
+    return { ok: false, error: 'db_error', message: error.message };
   }
 }
 
