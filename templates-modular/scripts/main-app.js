@@ -187,11 +187,6 @@ document.addEventListener('alpine:init', () => {
                 this.exportedSymmetricKey = symmetricKey;
                 this.showExportedKey = false;
                 this.showExportKeyModal = true;
-                
-                // Clear symmetric key from memory after showing modal
-                setTimeout(() => {
-                    clearSymmetricKeyFromMemory(symmetricKey);
-                }, 100);
             } catch (error) {
                 console.error('Failed to export symmetric key:', error);
                 alert('Failed to export key: ' + error.message);
@@ -216,8 +211,17 @@ document.addEventListener('alpine:init', () => {
         },
         
         async saveImportedKey() {
-            if (!this.importSymmetricKey.trim()) {
+            const key = this.importSymmetricKey.trim();
+            if (!key) {
                 alert('Please enter a symmetric key');
+                return;
+            }
+            if (key.length < 16) {
+                alert('Key is too short. Minimum 16 characters required.');
+                return;
+            }
+            if (key.length > 256) {
+                alert('Key is too long. Maximum 256 characters allowed.');
                 return;
             }
             
@@ -226,7 +230,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 // Encrypt the imported symmetric key with current RSA public key
                 const encryptedSymmetricKey = await encryptSymmetricKey(
-                    this.importSymmetricKey.trim(), 
+                    key,
                     this.cryptoSystem.keyPair.publicKey
                 );
                 
@@ -479,6 +483,12 @@ document.addEventListener('alpine:init', () => {
         },
 
         // CSP-safe helper methods (replace optional chaining and multi-statement handlers)
+        closeExportKeyModal() {
+            this.showExportKeyModal = false;
+            this.exportedSymmetricKey = '';
+            this.showExportedKey = false;
+        },
+
         openImportKeyModal() {
             this.showImportKeyModal = true;
             this.importSymmetricKey = '';
@@ -488,6 +498,9 @@ document.addEventListener('alpine:init', () => {
             this.showModal = false;
             this.message = '';
             this.customName = '';
+            this.links.full = '';
+            this.links.noKey = '';
+            this.links.keyOnly = '';
             this.loadSecrets();
             this.loadPendingSecrets();
         },

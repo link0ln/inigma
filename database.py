@@ -178,18 +178,13 @@ class DatabaseManager:
             logger.error(f"Error retrieving message {message_id}: {e}")
             return None
     
-    def update_message_owner(self, message_id: str, uid: str, encrypted_message: str, 
-                           iv: str, salt: str) -> bool:
-        """Update message owner and content"""
+    def update_message_owner(self, message_id: str, uid: str, encrypted_message: str,
+                           iv: str, salt: str) -> Dict[str, Any]:
+        """Update message owner and content. Returns structured result matching Workers."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                
-                # Debug: Check current state
-                cursor.execute("SELECT id, uid FROM messages WHERE id = ?", (message_id,))
-                current_state = cursor.fetchone()
-                logger.debug(f"Current state for message {message_id}: {current_state}")
-                
+
                 cursor.execute("""
                     UPDATE messages
                     SET uid = ?, encrypted_message = ?, iv = ?, salt = ?
@@ -198,14 +193,18 @@ class DatabaseManager:
                 conn.commit()
 
                 if cursor.rowcount > 0:
-                    logger.debug(f"Message {message_id} owner updated successfully to uid: {uid}")
-                    return True
-                else:
-                    logger.warning(f"Message {message_id} not found or already owned")
-                    return False
+                    logger.debug(f"Message {message_id} owner updated successfully")
+                    return {"ok": True}
+
+                # Distinguish: not found vs already owned
+                cursor.execute("SELECT uid FROM messages WHERE id = ?", (message_id,))
+                row = cursor.fetchone()
+                if row is None:
+                    return {"ok": False, "error": "not_found"}
+                return {"ok": False, "error": "already_owned"}
         except Exception as e:
             logger.error(f"Error updating message owner {message_id}: {e}")
-            return False
+            return {"ok": False, "error": "db_error"}
     
     def update_custom_name(self, message_id: str, uid: str, custom_name: str) -> bool:
         """Update custom name for a message"""
@@ -229,8 +228,8 @@ class DatabaseManager:
             logger.error(f"Error updating custom name for {message_id}: {e}")
             return False
     
-    def delete_message(self, message_id: str, uid: str) -> bool:
-        """Delete a message (only if user owns it or created it)"""
+    def delete_message(self, message_id: str, uid: str) -> Dict[str, Any]:
+        """Delete a message (only if user owns it or created it). Returns structured result."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -243,13 +242,13 @@ class DatabaseManager:
 
                 if cursor.rowcount > 0:
                     logger.debug(f"Message {message_id} deleted successfully")
-                    return True
+                    return {"ok": True}
                 else:
                     logger.warning(f"Message {message_id} not found or access denied")
-                    return False
+                    return {"ok": False, "error": "not_found"}
         except Exception as e:
             logger.error(f"Error deleting message {message_id}: {e}")
-            return False
+            return {"ok": False, "error": "db_error"}
     
     def list_user_secrets(self, uid: str, page: int = 1, per_page: int = 10) -> Dict[str, Any]:
         """List user's owned secrets with pagination"""

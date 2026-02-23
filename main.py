@@ -89,6 +89,53 @@ def build_template_from_modular(template_name):
 
     return content
 
+# Initialize database
+db = DatabaseManager()
+
+# Initialize scheduler
+scheduler = AsyncIOScheduler()
+
+def cleanup_database():
+    """Background task to cleanup expired messages"""
+    try:
+        deleted_count = db.cleanup_expired_messages()
+        logger.info(f"Scheduled cleanup completed. Deleted {deleted_count} expired messages")
+    except Exception as e:
+        logger.error(f"Error during scheduled cleanup: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Application lifespan: startup and shutdown logic"""
+    logger.info("Application starting up")
+
+    # Run initial cleanup
+    try:
+        db.cleanup_expired_messages()
+    except Exception as e:
+        logger.error(f"Failed to run startup cleanup: {e}")
+
+    # Schedule daily cleanup at 2:00 AM
+    scheduler.add_job(
+        cleanup_database,
+        CronTrigger(hour=2, minute=0),
+        id='daily_cleanup',
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("Scheduler started - daily cleanup scheduled for 2:00 AM")
+
+    yield
+
+    logger.info("Application shutting down")
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+            logger.info("Scheduler stopped")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {e}")
+
+
 app = FastAPI(title="Inigma - Secure Message Sharing", lifespan=lifespan)
 
 # Configure CORS with target domain restrictions
@@ -136,52 +183,6 @@ class RequestIdFilter(logging.Filter):
     def filter(self, record):
         record.request_id = self.request_id
         return True
-
-# Initialize database
-db = DatabaseManager()
-
-# Initialize scheduler
-scheduler = AsyncIOScheduler()
-
-def cleanup_database():
-    """Background task to cleanup expired messages"""
-    try:
-        deleted_count = db.cleanup_expired_messages()
-        logger.info(f"Scheduled cleanup completed. Deleted {deleted_count} expired messages")
-    except Exception as e:
-        logger.error(f"Error during scheduled cleanup: {e}")
-
-
-@asynccontextmanager
-async def lifespan(app):
-    """Application lifespan: startup and shutdown logic"""
-    logger.info("Application starting up")
-
-    # Run initial cleanup
-    try:
-        db.cleanup_expired_messages()
-    except Exception as e:
-        logger.error(f"Failed to run startup cleanup: {e}")
-
-    # Schedule daily cleanup at 2:00 AM
-    scheduler.add_job(
-        cleanup_database,
-        CronTrigger(hour=2, minute=0),
-        id='daily_cleanup',
-        replace_existing=True
-    )
-    scheduler.start()
-    logger.info("Scheduler started - daily cleanup scheduled for 2:00 AM")
-
-    yield
-
-    logger.info("Application shutting down")
-    try:
-        if scheduler.running:
-            scheduler.shutdown()
-            logger.info("Scheduler stopped")
-    except Exception as e:
-        logger.error(f"Error shutting down scheduler: {e}")
 
 
 # Data models
@@ -344,8 +345,8 @@ class ListSecretsRequest(BaseModel):
     @field_validator('per_page')
     @classmethod
     def validate_per_page(cls, v: int) -> int:
-        if v < 1 or v > 50:
-            raise ValueError('Per page must be between 1 and 50')
+        if v < 1 or v > 100:
+            raise ValueError('Per page must be between 1 and 100')
         return v
 
 class UpdateCustomNameRequest(BaseModel):
@@ -554,7 +555,7 @@ async def create_message(request: CreateMessageRequest):
 @app.post("/api/view")
 async def view_message(request: ViewMessageRequest):
     """Retrieve encrypted message"""
-    logger.info(f"Viewing message {request.view} for uid {request.uid[:8]}...")
+    logger.info(f"Viewing message {request.view}")
     
     # Retrieve message from database
     data = db.retrieve_message(request.view)
@@ -601,7 +602,7 @@ async def update_owner(request: UpdateOwnerRequest):
     logger.info(f"Updating owner for message {request.view}")
 
     # Atomically update owner — SQL WHERE uid = '' prevents race conditions
-    success = db.update_message_owner(
+    result = db.update_message_owner(
         request.view,
         request.uid,
         request.encrypted_message,
@@ -609,20 +610,23 @@ async def update_owner(request: UpdateOwnerRequest):
         request.salt
     )
 
-    if success:
+    if result["ok"]:
         logger.info(f"Successfully updated owner for message {request.view}")
         return {"status": "success", "message": "secret owned"}
-    else:
-        logger.warning(f"Ownership update failed for message {request.view}")
-        return JSONResponse(
-            status_code=404,
-            content={"status": "failed", "message": "Secret not found or already owned"}
-        )
+
+    error = result.get("error", "not_found")
+    status_map = {"not_found": 404, "already_owned": 409, "db_error": 503}
+    message_map = {"not_found": "Secret not found", "already_owned": "Secret already owned", "db_error": "Service temporarily unavailable"}
+    logger.warning(f"Ownership update failed for message {request.view}: {error}")
+    return JSONResponse(
+        status_code=status_map.get(error, 404),
+        content={"status": "failed", "message": message_map.get(error, "Secret not found or already owned")}
+    )
 
 @app.post("/api/list-pending-secrets")
 async def list_pending_secrets(request: ListSecretsRequest):
     """List user's pending secrets (created but not yet claimed)"""
-    logger.info(f"Listing pending secrets for creator {request.uid[:8]}...")
+    logger.info(f"Listing pending secrets")
     
     result = db.list_pending_secrets(request.uid, request.page, request.per_page)
     return result
@@ -630,7 +634,7 @@ async def list_pending_secrets(request: ListSecretsRequest):
 @app.post("/api/list-secrets")
 async def list_user_secrets(request: ListSecretsRequest):
     """List user's secrets with pagination"""
-    logger.info(f"Listing secrets for user {request.uid[:8]}...")
+    logger.info(f"Listing user secrets")
     
     result = db.list_user_secrets(request.uid, request.page, request.per_page)
     return result
@@ -657,17 +661,20 @@ async def delete_secret(request: DeleteSecretRequest):
     """Delete a secret"""
     logger.info(f"Deleting secret {request.view}")
     
-    success = db.delete_message(request.view, request.uid)
+    result = db.delete_message(request.view, request.uid)
 
-    if success:
+    if result["ok"]:
         logger.info(f"Successfully deleted secret {request.view}")
         return {"status": "success", "message": "Secret deleted"}
-    else:
-        logger.warning(f"Failed to delete secret {request.view}")
-        return JSONResponse(
-            status_code=404,
-            content={"status": "failed", "message": "Secret not found or access denied"}
-        )
+
+    error = result.get("error", "not_found")
+    status = 503 if error == "db_error" else 404
+    message = "Service temporarily unavailable" if error == "db_error" else "Secret not found or access denied"
+    logger.warning(f"Failed to delete secret {request.view}: {error}")
+    return JSONResponse(
+        status_code=status,
+        content={"status": "failed", "message": message}
+    )
 
 @app.get("/health")
 async def health_check():
