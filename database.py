@@ -8,12 +8,14 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
+PERMANENT_TTL = 9999999999
+
 def calculate_time_remaining(ttl: int, current_time: int) -> Dict[str, Any]:
     """
     Calculate time remaining for a secret with smart formatting
     Returns object with time remaining and formatted display string
     """
-    if ttl == 9999999999:
+    if ttl == PERMANENT_TTL:
         return {
             "value": -1,
             "display": "Permanent",
@@ -273,20 +275,20 @@ class DatabaseManager:
                 
                 # Get total count
                 cursor.execute("""
-                    SELECT COUNT(*) FROM messages 
-                    WHERE uid = ? AND (ttl > ? OR ttl = 9999999999)
-                """, (uid, current_time))
+                    SELECT COUNT(*) FROM messages
+                    WHERE uid = ? AND (ttl > ? OR ttl = ?)
+                """, (uid, current_time, PERMANENT_TTL))
                 total = cursor.fetchone()[0]
                 logger.debug(f"Total count for uid {uid}: {total}")
-                
+
                 # Get paginated results
                 cursor.execute("""
-                    SELECT id, custom_name, ttl, created_at 
-                    FROM messages 
-                    WHERE uid = ? AND (ttl > ? OR ttl = 9999999999)
+                    SELECT id, custom_name, ttl, created_at
+                    FROM messages
+                    WHERE uid = ? AND (ttl > ? OR ttl = ?)
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                """, (uid, current_time, per_page, offset))
+                """, (uid, current_time, PERMANENT_TTL, per_page, offset))
                 
                 secrets = []
                 for row in cursor.fetchall():
@@ -326,19 +328,19 @@ class DatabaseManager:
                 
                 # Get total count
                 cursor.execute("""
-                    SELECT COUNT(*) FROM messages 
-                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = 9999999999)
-                """, (creator_uid, current_time))
+                    SELECT COUNT(*) FROM messages
+                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = ?)
+                """, (creator_uid, current_time, PERMANENT_TTL))
                 total = cursor.fetchone()[0]
-                
+
                 # Get paginated results
                 cursor.execute("""
-                    SELECT id, custom_name, ttl, created_at 
-                    FROM messages 
-                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = 9999999999)
+                    SELECT id, custom_name, ttl, created_at
+                    FROM messages
+                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = ?)
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                """, (creator_uid, current_time, per_page, offset))
+                """, (creator_uid, current_time, PERMANENT_TTL, per_page, offset))
                 
                 secrets = []
                 for row in cursor.fetchall():
@@ -374,9 +376,9 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    DELETE FROM messages 
-                    WHERE (ttl < ? AND ttl != 9999999999) OR created_at < ?
-                """, (current_time, cutoff_time))
+                    DELETE FROM messages
+                    WHERE (ttl < ? AND ttl != ?) OR created_at < ?
+                """, (current_time, PERMANENT_TTL, cutoff_time))
                 
                 deleted_count = cursor.rowcount
                 conn.commit()

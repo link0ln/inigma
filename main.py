@@ -18,7 +18,7 @@ import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from database import DatabaseManager
+from database import DatabaseManager, PERMANENT_TTL
 
 # Configure logging
 logging.basicConfig(
@@ -409,7 +409,7 @@ async def create_message(request: CreateMessageRequest):
     
     # Calculate TTL
     if request.ttl == 0:
-        ttl = 9999999999
+        ttl = PERMANENT_TTL
         logger.debug("Setting permanent TTL")
     else:
         ttl = get_timestamp() + (request.ttl * 24 * 60 * 60)
