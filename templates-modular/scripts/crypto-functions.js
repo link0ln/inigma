@@ -337,14 +337,5 @@ async function decrypt(encryptedData, salt, iv, password) {
 }
 
 function generatePassword(length) {
-    // Use cryptographically secure random generation
-    const array = new Uint8Array(length);
-    crypto.getRandomValues(array);
-    
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(array[i] % chars.length);
-    }
-    return result;
+    return generateSymmetricKey(length);
 }
