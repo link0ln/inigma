@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import os
+import json
 import logging
 import secrets
 import time
 import html
 import re
+import uuid
 from typing import Optional, Dict, Any
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -20,12 +22,31 @@ from apscheduler.triggers.cron import CronTrigger
 
 from database import DatabaseManager, PERMANENT_TTL
 
+
+class JSONFormatter(logging.Formatter):
+    """JSON log formatter for structured logging"""
+    def format(self, record):
+        entry = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname.lower(),
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if hasattr(record, 'request_id') and record.request_id:
+            entry["requestId"] = record.request_id
+        if record.exc_info and record.exc_info[0]:
+            entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(entry, ensure_ascii=False)
+
+
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger(__name__)
+
+# Request ID context (per-request, set by middleware)
+_request_id_ctx: dict = {}
 
 # Template builder function
 def build_template_from_modular(template_name):
@@ -90,11 +111,31 @@ app.add_middleware(
 )
 
 
-# Security headers middleware
+# Request ID + security headers middleware
 @app.middleware("http")
-async def security_headers_middleware(request: Request, call_next):
-    response = await call_next(request)
-    return add_security_headers(response)
+async def request_middleware(request: Request, call_next):
+    request_id = uuid.uuid4().hex[:16]
+    # Inject request_id into log records via a filter
+    log_filter = RequestIdFilter(request_id)
+    logging.getLogger().addFilter(log_filter)
+    try:
+        logger.info(f"Incoming request", extra={"request_id": request_id})
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return add_security_headers(response)
+    finally:
+        logging.getLogger().removeFilter(log_filter)
+
+
+class RequestIdFilter(logging.Filter):
+    """Injects request_id into all log records"""
+    def __init__(self, request_id: str):
+        super().__init__()
+        self.request_id = request_id
+
+    def filter(self, record):
+        record.request_id = self.request_id
+        return True
 
 # Initialize database
 db = DatabaseManager()

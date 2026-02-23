@@ -9,6 +9,7 @@ import { handlePost } from './handlers/post.js';
 import { cleanupOldMessages } from './utils/database.js';
 import { getCorsHeaders } from './utils/cors.js';
 import { checkRateLimit, addRateLimitHeaders, createRateLimitResponse } from './utils/rateLimit.js';
+import { logger, setRequestId, generateRequestId } from './utils/logger.js';
 
 /**
  * Handle scheduled events (cleanup) - like Python cron job
@@ -23,9 +24,14 @@ async function handleScheduled(event, env, ctx) {
  */
 export default {
   async fetch(request, env, ctx) {
+    const requestId = generateRequestId();
+    setRequestId(requestId);
+
     try {
       const method = request.method;
       const url = new URL(request.url);
+
+      logger.info('Incoming request', { method, path: url.pathname });
 
       // OPTIONS requests bypass rate limiting
       if (method === 'OPTIONS') {
@@ -72,7 +78,7 @@ export default {
         headers: getCorsHeaders(request),
       });
     } catch (error) {
-      console.error('Unhandled error in fetch handler:', error);
+      logger.error('Unhandled error in fetch handler', { error: error.message, stack: error.stack });
       return new Response(JSON.stringify({ error: 'Internal server error' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
