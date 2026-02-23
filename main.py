@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -114,13 +114,15 @@ class CreateMessageRequest(BaseModel):
     ttl: Optional[int] = 30
     custom_name: Optional[str] = ""
     creator_uid: str
-    
-    @validator('custom_name')
-    def sanitize_custom_name_field(cls, v):
+
+    @field_validator('custom_name')
+    @classmethod
+    def sanitize_custom_name_field(cls, v: Optional[str]) -> str:
         return sanitize_custom_name(v or "")
-    
-    @validator('ttl')
-    def validate_ttl(cls, v):
+
+    @field_validator('ttl')
+    @classmethod
+    def validate_ttl(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and (v < 0 or v > 365):
             raise ValueError('TTL must be between 0 and 365 days')
         return v
@@ -131,9 +133,10 @@ class UpdateOwnerRequest(BaseModel):
     encrypted_message: str
     iv: str
     salt: str
-    
-    @validator('view')
-    def validate_view_id(cls, v):
+
+    @field_validator('view')
+    @classmethod
+    def validate_view_id(cls, v: str) -> str:
         if not validate_message_id(v):
             raise ValueError('Invalid message ID format')
         return v
@@ -141,9 +144,10 @@ class UpdateOwnerRequest(BaseModel):
 class ViewMessageRequest(BaseModel):
     view: str
     uid: str
-    
-    @validator('view')
-    def validate_view_id(cls, v):
+
+    @field_validator('view')
+    @classmethod
+    def validate_view_id(cls, v: str) -> str:
         if not validate_message_id(v):
             raise ValueError('Invalid message ID format')
         return v
@@ -152,15 +156,17 @@ class ListSecretsRequest(BaseModel):
     uid: str
     page: int = 1
     per_page: int = 10
-    
-    @validator('page')
-    def validate_page(cls, v):
+
+    @field_validator('page')
+    @classmethod
+    def validate_page(cls, v: int) -> int:
         if v < 1:
             raise ValueError('Page must be >= 1')
         return v
-    
-    @validator('per_page')
-    def validate_per_page(cls, v):
+
+    @field_validator('per_page')
+    @classmethod
+    def validate_per_page(cls, v: int) -> int:
         if v < 1 or v > 50:
             raise ValueError('Per page must be between 1 and 50')
         return v
@@ -169,23 +175,26 @@ class UpdateCustomNameRequest(BaseModel):
     view: str
     uid: str
     custom_name: str
-    
-    @validator('view')
-    def validate_view_id(cls, v):
+
+    @field_validator('view')
+    @classmethod
+    def validate_view_id(cls, v: str) -> str:
         if not validate_message_id(v):
             raise ValueError('Invalid message ID format')
         return v
-    
-    @validator('custom_name')
-    def sanitize_custom_name_field(cls, v):
+
+    @field_validator('custom_name')
+    @classmethod
+    def sanitize_custom_name_field(cls, v: str) -> str:
         return sanitize_custom_name(v or "")
 
 class DeleteSecretRequest(BaseModel):
     view: str
     uid: str
-    
-    @validator('view')
-    def validate_view_id(cls, v):
+
+    @field_validator('view')
+    @classmethod
+    def validate_view_id(cls, v: str) -> str:
         if not validate_message_id(v):
             raise ValueError('Invalid message ID format')
         return v
