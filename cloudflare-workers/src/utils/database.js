@@ -126,12 +126,13 @@ export async function deleteMessage(env, messageId, uid) {
     const [deleteResult, checkResult] = await env.INIGMA_DB.batch([deleteStmt, checkStmt]);
     console.log(`Delete message result: success=${deleteResult.success}, changes=${deleteResult.changes}`);
 
-    if (checkResult.results.length === 0) {
-      console.log(`Message deletion verified`);
-      return true;
+    if (deleteResult.changes === 0) {
+      console.log(`Message not found or access denied`);
+      return false;
     }
 
-    return deleteResult.changes > 0;
+    console.log(`Message deletion verified`);
+    return true;
   } catch (error) {
     console.error('Error deleting message:', error);
     return false;
