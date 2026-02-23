@@ -136,7 +136,7 @@ function viewApp() {
                 const iv = window.crypto.getRandomValues(new Uint8Array(16));
                 const encrypted = await encrypt(message, salt, iv, symmetricKey);
                 
-                await fetch('/api/update', {
+                const response = await fetch('/api/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -147,9 +147,17 @@ function viewApp() {
                         salt: arrayBufferToBase64(salt)
                     })
                 });
-                
-                // Update local state - now user is owner
-                this.isOwner = true;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        this.isOwner = true;
+                    } else {
+                        console.error('Ownership update failed:', data.message);
+                    }
+                } else {
+                    console.error('Ownership update request failed:', response.status);
+                }
                 
                 // Clear symmetric key from memory
                 clearSymmetricKeyFromMemory(symmetricKey);
