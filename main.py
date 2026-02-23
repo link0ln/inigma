@@ -107,6 +107,11 @@ def cleanup_database():
 
 
 # Data models
+MAX_ENCRYPTED_MESSAGE_SIZE = 2 * 1024 * 1024  # 2MB
+BASE64_REGEX = re.compile(r'^[A-Za-z0-9+/]*={0,2}$')
+UID_REGEX = re.compile(r'^[a-zA-Z0-9_-]{1,128}$')
+
+
 class CreateMessageRequest(BaseModel):
     encrypted_message: str
     iv: str
@@ -114,6 +119,42 @@ class CreateMessageRequest(BaseModel):
     ttl: Optional[int] = 30
     custom_name: Optional[str] = ""
     creator_uid: str
+
+    @field_validator('encrypted_message')
+    @classmethod
+    def validate_encrypted_message(cls, v: str) -> str:
+        if not v:
+            raise ValueError('Encrypted message cannot be empty')
+        if len(v) > MAX_ENCRYPTED_MESSAGE_SIZE:
+            raise ValueError('Encrypted message too large (max 2MB)')
+        if not BASE64_REGEX.match(v):
+            raise ValueError('Invalid base64 format')
+        return v
+
+    @field_validator('iv')
+    @classmethod
+    def validate_iv(cls, v: str) -> str:
+        if not v or len(v) > 64:
+            raise ValueError('Invalid IV length')
+        if not re.match(r'^[A-Za-z0-9+/=]{1,64}$', v):
+            raise ValueError('Invalid IV format')
+        return v
+
+    @field_validator('salt')
+    @classmethod
+    def validate_salt(cls, v: str) -> str:
+        if not v or len(v) > 128:
+            raise ValueError('Invalid salt length')
+        if not re.match(r'^[A-Za-z0-9+/=]{1,128}$', v):
+            raise ValueError('Invalid salt format')
+        return v
+
+    @field_validator('creator_uid')
+    @classmethod
+    def validate_creator_uid(cls, v: str) -> str:
+        if not v or not UID_REGEX.match(v):
+            raise ValueError('Invalid creator_uid format')
+        return v
 
     @field_validator('custom_name')
     @classmethod
@@ -141,6 +182,42 @@ class UpdateOwnerRequest(BaseModel):
             raise ValueError('Invalid message ID format')
         return v
 
+    @field_validator('uid')
+    @classmethod
+    def validate_uid(cls, v: str) -> str:
+        if not v or not UID_REGEX.match(v):
+            raise ValueError('Invalid UID format')
+        return v
+
+    @field_validator('encrypted_message')
+    @classmethod
+    def validate_encrypted_message(cls, v: str) -> str:
+        if not v:
+            raise ValueError('Encrypted message cannot be empty')
+        if len(v) > MAX_ENCRYPTED_MESSAGE_SIZE:
+            raise ValueError('Encrypted message too large (max 2MB)')
+        if not BASE64_REGEX.match(v):
+            raise ValueError('Invalid base64 format')
+        return v
+
+    @field_validator('iv')
+    @classmethod
+    def validate_iv(cls, v: str) -> str:
+        if not v or len(v) > 64:
+            raise ValueError('Invalid IV length')
+        if not re.match(r'^[A-Za-z0-9+/=]{1,64}$', v):
+            raise ValueError('Invalid IV format')
+        return v
+
+    @field_validator('salt')
+    @classmethod
+    def validate_salt(cls, v: str) -> str:
+        if not v or len(v) > 128:
+            raise ValueError('Invalid salt length')
+        if not re.match(r'^[A-Za-z0-9+/=]{1,128}$', v):
+            raise ValueError('Invalid salt format')
+        return v
+
 class ViewMessageRequest(BaseModel):
     view: str
     uid: str
@@ -152,10 +229,24 @@ class ViewMessageRequest(BaseModel):
             raise ValueError('Invalid message ID format')
         return v
 
+    @field_validator('uid')
+    @classmethod
+    def validate_uid(cls, v: str) -> str:
+        if not v or not UID_REGEX.match(v):
+            raise ValueError('Invalid UID format')
+        return v
+
 class ListSecretsRequest(BaseModel):
     uid: str
     page: int = 1
     per_page: int = 10
+
+    @field_validator('uid')
+    @classmethod
+    def validate_uid(cls, v: str) -> str:
+        if not v or not UID_REGEX.match(v):
+            raise ValueError('Invalid UID format')
+        return v
 
     @field_validator('page')
     @classmethod
@@ -183,6 +274,13 @@ class UpdateCustomNameRequest(BaseModel):
             raise ValueError('Invalid message ID format')
         return v
 
+    @field_validator('uid')
+    @classmethod
+    def validate_uid(cls, v: str) -> str:
+        if not v or not UID_REGEX.match(v):
+            raise ValueError('Invalid UID format')
+        return v
+
     @field_validator('custom_name')
     @classmethod
     def sanitize_custom_name_field(cls, v: str) -> str:
@@ -197,6 +295,13 @@ class DeleteSecretRequest(BaseModel):
     def validate_view_id(cls, v: str) -> str:
         if not validate_message_id(v):
             raise ValueError('Invalid message ID format')
+        return v
+
+    @field_validator('uid')
+    @classmethod
+    def validate_uid(cls, v: str) -> str:
+        if not v or not UID_REGEX.match(v):
+            raise ValueError('Invalid UID format')
         return v
 
 def generate_random_string(length: int = 25) -> str:
