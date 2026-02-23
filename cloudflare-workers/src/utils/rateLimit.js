@@ -153,7 +153,7 @@ export async function checkRateLimit(request, env) {
 
   } catch (error) {
     console.error('Rate limit check failed:', error);
-    // On error, allow request (fail open)
+    console.error('Rate limiter fail-open: allowing request without rate limiting due to KV error');
     return { allowed: true, remaining: 999, resetAt: Date.now() + 60000 };
   }
 }
