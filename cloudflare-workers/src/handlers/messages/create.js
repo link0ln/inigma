@@ -18,7 +18,25 @@ import { storeMessage } from '../../utils/database.js';
 import { PERMANENT_TTL } from '../../constants/config.js';
 
 export async function handleCreateMessage(body, env, request) {
-  const { encrypted_message, iv, salt, ttl = 30, creator_uid, custom_name } = body;
+  const { encrypted_message, iv, salt, ttl = 30, creator_uid, custom_name, idempotency_key } = body;
+
+  // Idempotency check — return cached response for duplicate requests
+  if (idempotency_key && typeof idempotency_key === 'string' && idempotency_key.length <= 64 && env.INIGMA_KV) {
+    try {
+      const cached = await env.INIGMA_KV.get(`idem:${idempotency_key}`, { type: 'json' });
+      if (cached) {
+        console.log(`Idempotent request: returning cached response for key ${idempotency_key.substring(0, 8)}...`);
+        return new Response(JSON.stringify(cached), {
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request),
+          },
+        });
+      }
+    } catch (e) {
+      console.warn('Idempotency check failed, proceeding:', e.message);
+    }
+  }
   
   // Validate required fields
   if (!encrypted_message || !iv || !salt || !creator_uid) {
@@ -137,11 +155,22 @@ export async function handleCreateMessage(body, env, request) {
   
   console.log(`Message created successfully: ${messageId.substring(0, 8)}...`);
   const domain = env.DOMAIN || 'inigma.idone.su';
-  
-  return new Response(JSON.stringify({
+
+  const responseData = {
     url: `https://${domain}/`,
     view: messageId,
-  }), {
+  };
+
+  // Cache response for idempotency (1 hour TTL)
+  if (idempotency_key && typeof idempotency_key === 'string' && idempotency_key.length <= 64 && env.INIGMA_KV) {
+    try {
+      await env.INIGMA_KV.put(`idem:${idempotency_key}`, JSON.stringify(responseData), { expirationTtl: 3600 });
+    } catch (e) {
+      console.warn('Failed to cache idempotency response:', e.message);
+    }
+  }
+
+  return new Response(JSON.stringify(responseData), {
     headers: {
       'Content-Type': 'application/json',
       ...getCorsHeaders(request),

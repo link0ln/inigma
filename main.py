@@ -197,6 +197,14 @@ class CreateMessageRequest(BaseModel):
     ttl: Optional[int] = 30
     custom_name: Optional[str] = ""
     creator_uid: str
+    idempotency_key: Optional[str] = None
+
+    @field_validator('idempotency_key')
+    @classmethod
+    def validate_idempotency_key(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and (len(v) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', v)):
+            raise ValueError('Invalid idempotency key format')
+        return v
 
     @field_validator('encrypted_message')
     @classmethod
@@ -429,6 +437,28 @@ def get_timestamp() -> int:
     """Get current timestamp"""
     return int(time.time())
 
+# Simple in-memory idempotency cache (key -> (response, expires_at))
+_idempotency_cache: Dict[str, tuple] = {}
+
+def check_idempotency(key: str) -> Optional[dict]:
+    """Check idempotency cache, return cached response or None"""
+    if key in _idempotency_cache:
+        response, expires_at = _idempotency_cache[key]
+        if time.time() < expires_at:
+            return response
+        del _idempotency_cache[key]
+    return None
+
+def store_idempotency(key: str, response: dict, ttl: int = 3600):
+    """Store response in idempotency cache"""
+    # Evict expired entries if cache grows too large
+    if len(_idempotency_cache) > 10000:
+        now = time.time()
+        expired = [k for k, (_, exp) in _idempotency_cache.items() if now >= exp]
+        for k in expired:
+            del _idempotency_cache[k]
+    _idempotency_cache[key] = (response, time.time() + ttl)
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     """Serve main page"""
@@ -450,6 +480,13 @@ async def view_page():
 @app.post("/api/create")
 async def create_message(request: CreateMessageRequest):
     """Create a new encrypted message"""
+    # Idempotency check
+    if request.idempotency_key:
+        cached = check_idempotency(request.idempotency_key)
+        if cached:
+            logger.info(f"Idempotent request: returning cached response")
+            return cached
+
     logger.info("Creating new message")
     
     # Calculate TTL
@@ -490,7 +527,11 @@ async def create_message(request: CreateMessageRequest):
         "url": f"{protocol}://{domain}/",
         "view": message_id
     }
-    
+
+    # Cache for idempotency
+    if request.idempotency_key:
+        store_idempotency(request.idempotency_key, response_data)
+
     response = JSONResponse(response_data)
     return add_security_headers(response)
 

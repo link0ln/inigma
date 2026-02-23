@@ -119,6 +119,11 @@ function app() {
                 
                 const encrypted = await encrypt(this.message, salt, iv, secretSymmetricKey);
                 
+                // Generate idempotency key to prevent duplicate creation on retry
+                const idempotencyBytes = new Uint8Array(16);
+                crypto.getRandomValues(idempotencyBytes);
+                const idempotencyKey = Array.from(idempotencyBytes, b => b.toString(16).padStart(2, '0')).join('');
+
                 const response = await fetch('/api/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -128,7 +133,8 @@ function app() {
                         salt: arrayBufferToBase64(salt),
                         ttl: parseInt(this.ttl) || 0,
                         custom_name: this.customName,
-                        creator_uid: this.credentials.uid
+                        creator_uid: this.credentials.uid,
+                        idempotency_key: idempotencyKey
                     })
                 });
                 
