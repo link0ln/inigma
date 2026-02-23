@@ -38,39 +38,48 @@ function getVersionInfo() {
 }
 
 // First, build templates from modular structure
+function resolveIncludes(content) {
+    // Recursively resolve {{> filename }} includes until none remain
+    const includePattern = /\{\{>\s*([^}]+)\s*\}\}/g;
+    let result = content;
+    let hadIncludes = true;
+    let depth = 0;
+    const maxDepth = 10;
+
+    while (hadIncludes && depth < maxDepth) {
+        hadIncludes = false;
+        depth++;
+        result = result.replace(includePattern, (match, filename) => {
+            hadIncludes = true;
+            const trimmedFilename = filename.trim();
+
+            let filePath;
+            if (trimmedFilename.endsWith('.css')) {
+                filePath = path.join(__dirname, '../templates-modular/styles', trimmedFilename);
+            } else if (trimmedFilename.endsWith('.js')) {
+                filePath = path.join(__dirname, '../templates-modular/scripts', trimmedFilename);
+            } else {
+                filePath = path.join(__dirname, '../templates-modular/components', trimmedFilename + '.html');
+            }
+
+            if (!fs.existsSync(filePath)) {
+                console.warn(`Warning: File not found: ${filePath}`);
+                return `<!-- Missing: ${trimmedFilename} -->`;
+            }
+
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            console.log(`  ✓ Included: ${trimmedFilename}`);
+            return fileContent;
+        });
+    }
+
+    return result;
+}
+
 function buildTemplate(templatePath, outputPath) {
     console.log(`Building ${templatePath}...`);
-    
     let templateContent = fs.readFileSync(templatePath, 'utf8');
-    
-    // Process all {{> filename }} includes
-    templateContent = templateContent.replace(/\{\{>\s*([^}]+)\s*\}\}/g, (match, filename) => {
-        const trimmedFilename = filename.trim();
-        
-        // Determine the file type and directory
-        let filePath;
-        if (trimmedFilename.endsWith('.css')) {
-            filePath = path.join(__dirname, '../templates-modular/styles', trimmedFilename);
-        } else if (trimmedFilename.endsWith('.js')) {
-            filePath = path.join(__dirname, '../templates-modular/scripts', trimmedFilename);
-        } else {
-            // Assume it's an HTML component
-            filePath = path.join(__dirname, '../templates-modular/components', trimmedFilename + '.html');
-        }
-        
-        // Check if file exists
-        if (!fs.existsSync(filePath)) {
-            console.warn(`Warning: File not found: ${filePath}`);
-            return `<!-- Missing: ${trimmedFilename} -->`;
-        }
-        
-        // Read and return file content
-        const content = fs.readFileSync(filePath, 'utf8');
-        console.log(`  ✓ Included: ${trimmedFilename}`);
-        return content;
-    });
-    
-    return templateContent;
+    return resolveIncludes(templateContent);
 }
 
 // Build templates
