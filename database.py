@@ -191,20 +191,14 @@ class DatabaseManager:
                 logger.debug(f"Current state for message {message_id}: {current_state}")
                 
                 cursor.execute("""
-                    UPDATE messages 
+                    UPDATE messages
                     SET uid = ?, encrypted_message = ?, iv = ?, salt = ?
                     WHERE id = ? AND uid = ''
                 """, (uid, encrypted_message, iv, salt, message_id))
-                
+                conn.commit()
+
                 if cursor.rowcount > 0:
-                    conn.commit()
                     logger.debug(f"Message {message_id} owner updated successfully to uid: {uid}")
-                    
-                    # Debug: Verify update
-                    cursor.execute("SELECT id, uid FROM messages WHERE id = ?", (message_id,))
-                    new_state = cursor.fetchone()
-                    logger.debug(f"New state for message {message_id}: {new_state}")
-                    
                     return True
                 else:
                     logger.warning(f"Message {message_id} not found or already owned")
@@ -219,13 +213,13 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    UPDATE messages 
+                    UPDATE messages
                     SET custom_name = ?
                     WHERE id = ? AND uid = ?
                 """, (custom_name, message_id, uid))
-                
+                conn.commit()
+
                 if cursor.rowcount > 0:
-                    conn.commit()
                     logger.debug(f"Custom name updated for message {message_id}")
                     return True
                 else:
@@ -242,12 +236,12 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 # Delete if user owns it or created it (for pending messages)
                 cursor.execute("""
-                    DELETE FROM messages 
+                    DELETE FROM messages
                     WHERE id = ? AND (uid = ? OR (uid = '' AND creator_uid = ?))
                 """, (message_id, uid, uid))
-                
+                conn.commit()
+
                 if cursor.rowcount > 0:
-                    conn.commit()
                     logger.debug(f"Message {message_id} deleted successfully")
                     return True
                 else:

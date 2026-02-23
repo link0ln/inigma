@@ -42,6 +42,7 @@ document.addEventListener('alpine:init', () => {
             total: 0,
             has_more: false
         },
+        storageWarning: false,
         
         async init() {
             console.log('Main app init - Initializing security and crypto system...');
@@ -66,12 +67,18 @@ document.addEventListener('alpine:init', () => {
             try {
                 // Initialize crypto system
                 this.cryptoSystem = await initializeCryptoSystem();
-                
+
+                // Warn if IndexedDB is unavailable (keys won't persist)
+                if (!this.cryptoSystem.persistentKeys) {
+                    this.storageWarning = true;
+                    console.warn('IndexedDB unavailable — keys are ephemeral (this session only)');
+                }
+
                 // Generate User ID from symmetric key
                 await this.updateUserIdFromSymmetricKey();
-                
+
                 console.log('Crypto system initialized, UID:', this.credentials.uid.substring(0, 8) + '...');
-                
+
                 // Load secrets on init
                 this.loadSecrets();
                 this.loadPendingSecrets();

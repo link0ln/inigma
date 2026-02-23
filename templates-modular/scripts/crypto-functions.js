@@ -195,9 +195,10 @@ async function generateUserIdFromSymmetricKey(symmetricKey) {
 async function initializeCryptoSystem() {
     const ENCRYPTED_SYMMETRIC_KEY_STORAGE_KEY = 'inigma_encrypted_symmetric_key';
     const keyStorage = new KeyStorage();
-    
+
     let keyPair, encryptedSymmetricKey;
-    
+    let persistentKeys = true;
+
     // Try to load existing RSA keys from IndexedDB
     try {
         keyPair = await keyStorage.getKeyPair();
@@ -207,39 +208,41 @@ async function initializeCryptoSystem() {
     } catch (error) {
         console.log('Failed to load RSA keys from IndexedDB:', error);
         keyPair = null;
+        persistentKeys = false;
     }
-    
+
     // If no RSA keys or failed to load, generate new ones
     if (!keyPair) {
         console.log('Generating new RSA key pair...');
         keyPair = await generateAsymmetricKeyPair();
-        
+
         // Store the new RSA keys in IndexedDB
         try {
             await keyStorage.storeKeyPair(keyPair);
             console.log('New RSA keys generated and stored in IndexedDB');
         } catch (error) {
             console.error('Failed to store RSA keys in IndexedDB:', error);
+            persistentKeys = false;
             // Continue anyway - keys will be in memory for this session
         }
     }
-    
+
     // Check for existing encrypted symmetric key
     encryptedSymmetricKey = localStorage.getItem(ENCRYPTED_SYMMETRIC_KEY_STORAGE_KEY);
-    
+
     if (!encryptedSymmetricKey) {
         console.log('Generating new symmetric key...');
         // Generate and encrypt new symmetric key
         const symmetricKey = generateSymmetricKey();
         encryptedSymmetricKey = await encryptSymmetricKey(symmetricKey, keyPair.publicKey);
         localStorage.setItem(ENCRYPTED_SYMMETRIC_KEY_STORAGE_KEY, encryptedSymmetricKey);
-        
+
         // Clear symmetric key from memory
         clearSymmetricKeyFromMemory(symmetricKey);
         console.log('New symmetric key generated and encrypted');
     } else {
         console.log('Using existing encrypted symmetric key');
-        
+
         // Test if we can decrypt the stored key with current RSA keys
         try {
             const testDecrypt = await decryptSymmetricKey(encryptedSymmetricKey, keyPair.privateKey);
@@ -254,8 +257,8 @@ async function initializeCryptoSystem() {
             clearSymmetricKeyFromMemory(symmetricKey);
         }
     }
-    
-    return { keyPair, encryptedSymmetricKey, keyStorage };
+
+    return { keyPair, encryptedSymmetricKey, keyStorage, persistentKeys };
 }
 
 // Get decrypted symmetric key for operations
