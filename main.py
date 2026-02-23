@@ -243,7 +243,10 @@ async def startup_event():
     logger.info("Application starting up")
     
     # Run initial cleanup
-    db.cleanup_expired_messages()
+    try:
+        db.cleanup_expired_messages()
+    except Exception as e:
+        logger.error(f"Failed to run startup cleanup: {e}")
     
     # Schedule daily cleanup at 2:00 AM
     scheduler.add_job(
