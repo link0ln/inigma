@@ -413,11 +413,11 @@ def validate_message_id(message_id: str) -> bool:
         return False
     return bool(re.match(r'^[a-zA-Z0-9_-]{1,50}$', message_id))
 
-def add_security_headers(response: Response) -> Response:
-    """Add security headers to response"""
-    response.headers["Content-Security-Policy"] = (
+def build_csp_with_nonce(nonce: str) -> str:
+    """Build CSP header value with a per-request nonce (for HTML responses)"""
+    return (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; "
+        f"script-src 'self' 'nonce-{nonce}' https://unpkg.com https://cdnjs.cloudflare.com; "
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
         "img-src 'self' data:; "
@@ -426,11 +426,24 @@ def add_security_headers(response: Response) -> Response:
         "object-src 'none'; "
         "base-uri 'self'"
     )
+
+
+def add_security_headers(response: Response) -> Response:
+    """Add security headers to response.
+
+    Skips CSP if already set (HTML routes set nonce-based CSP directly).
+    """
+    if "content-security-policy" not in response.headers:
+        # Strict CSP for non-HTML (API) responses
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            "frame-ancestors 'none'"
+        )
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    
+
     return response
 
 def get_timestamp() -> int:
@@ -463,19 +476,23 @@ def store_idempotency(key: str, response: dict, ttl: int = 3600):
 async def index():
     """Serve main page"""
     logger.info("Serving index page")
-    content = build_template_from_modular("index.html")
-    
+    nonce = secrets.token_urlsafe(24)
+    content = build_template_from_modular("index.html").replace("__CSP_NONCE__", nonce)
+
     response = HTMLResponse(content)
-    return add_security_headers(response)
+    response.headers["Content-Security-Policy"] = build_csp_with_nonce(nonce)
+    return response
 
 @app.get("/view", response_class=HTMLResponse)
 async def view_page():
     """Serve view page"""
     logger.info("Serving view page")
-    content = build_template_from_modular("view.html")
-    
+    nonce = secrets.token_urlsafe(24)
+    content = build_template_from_modular("view.html").replace("__CSP_NONCE__", nonce)
+
     response = HTMLResponse(content)
-    return add_security_headers(response)
+    response.headers["Content-Security-Policy"] = build_csp_with_nonce(nonce)
+    return response
 
 @app.post("/api/create")
 async def create_message(request: CreateMessageRequest):
@@ -532,8 +549,7 @@ async def create_message(request: CreateMessageRequest):
     if request.idempotency_key:
         store_idempotency(request.idempotency_key, response_data)
 
-    response = JSONResponse(response_data)
-    return add_security_headers(response)
+    return JSONResponse(response_data)
 
 @app.post("/api/view")
 async def view_message(request: ViewMessageRequest):

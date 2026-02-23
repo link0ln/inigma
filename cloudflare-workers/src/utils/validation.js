@@ -103,21 +103,31 @@ export function sanitizeString(str) {
 }
 
 /**
- * Add security headers to response (matching Python version)
+ * Build CSP header value with a per-request nonce (for HTML responses)
+ */
+export function buildCspWithNonce(nonce) {
+  return (
+    "default-src 'self'; " +
+    `script-src 'self' 'nonce-${nonce}' https://unpkg.com https://cdnjs.cloudflare.com; ` +
+    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
+    "font-src 'self' https://cdnjs.cloudflare.com; " +
+    "img-src 'self' data:; " +
+    "connect-src 'self'; " +
+    "frame-ancestors 'none'; " +
+    "object-src 'none'; " +
+    "base-uri 'self'"
+  );
+}
+
+/**
+ * Add security headers to response (for non-HTML / API responses)
  */
 export function addSecurityHeaders(headers = {}) {
   return {
     ...headers,
     "Content-Security-Policy":
-      "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; " +
-      "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
-      "font-src 'self' https://cdnjs.cloudflare.com; " +
-      "img-src 'self' data:; " +
-      "connect-src 'self'; " +
-      "frame-ancestors 'none'; " +
-      "object-src 'none'; " +
-      "base-uri 'self'",
+      "default-src 'none'; " +
+      "frame-ancestors 'none'",
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",

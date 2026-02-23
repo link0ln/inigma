@@ -3,6 +3,24 @@
  */
 
 import { getCorsHeaders } from '../utils/cors.js';
+import { buildCspWithNonce } from '../utils/validation.js';
+
+/**
+ * Generate a cryptographic nonce for CSP and inject it into HTML
+ */
+function serveHtmlWithNonce(html, request) {
+  const nonceBytes = new Uint8Array(24);
+  crypto.getRandomValues(nonceBytes);
+  const nonce = btoa(String.fromCharCode(...nonceBytes));
+
+  const nonceHtml = html.replaceAll('__CSP_NONCE__', nonce);
+
+  const headers = getCorsHeaders(request);
+  headers['Content-Type'] = 'text/html';
+  headers['Content-Security-Policy'] = buildCspWithNonce(nonce);
+
+  return new Response(nonceHtml, { headers });
+}
 
 export async function handleGet(request, env) {
   try {
@@ -10,21 +28,11 @@ export async function handleGet(request, env) {
     const path = url.pathname;
 
     if (path === '/') {
-      return new Response(indexHTML, {
-        headers: {
-          'Content-Type': 'text/html',
-          ...getCorsHeaders(request),
-        },
-      });
+      return serveHtmlWithNonce(indexHTML, request);
     }
 
     if (path === '/view') {
-      return new Response(viewHTML, {
-        headers: {
-          'Content-Type': 'text/html',
-          ...getCorsHeaders(request),
-        },
-      });
+      return serveHtmlWithNonce(viewHTML, request);
     }
 
     if (path === '/health') {
