@@ -73,6 +73,7 @@ export async function handleUpdateCustomName(body, env, request) {
         status: 'failed',
         message: 'Secret not found or access denied',
       }), {
+        status: 404,
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),

@@ -4,7 +4,7 @@
 
 import { getCorsHeaders } from '../../utils/cors.js';
 import { isValidMessageId, isValidUid, getTimestamp } from '../../utils/validation.js';
-import { retrieveMessage, deleteMessage } from '../../utils/database.js';
+import { retrieveMessage } from '../../utils/database.js';
 
 export async function handleViewMessage(body, env, request) {
   const { view, uid } = body;
@@ -41,13 +41,14 @@ export async function handleViewMessage(body, env, request) {
       message: 'No such hash!',
       redirect_root: 'true',
     }), {
+      status: 404,
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),
       },
     });
   }
-  
+
   // Check TTL
   const currentTime = getTimestamp();
   if (data.ttl < currentTime) {
@@ -55,6 +56,7 @@ export async function handleViewMessage(body, env, request) {
       message: 'Message has expired!',
       redirect_root: 'true',
     }), {
+      status: 410,
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),
@@ -85,6 +87,7 @@ export async function handleViewMessage(body, env, request) {
     message: 'Access denied!',
     redirect_root: 'true',
   }), {
+    status: 403,
     headers: {
       'Content-Type': 'application/json',
       ...getCorsHeaders(request),
