@@ -195,9 +195,9 @@ class SecurityHardening {
                 self.onmessage = async function(e) {
                     try {
                         const result = await keyManager.processKey(e.data.operation, e.data.data);
-                        self.postMessage({ success: true, result });
+                        self.postMessage({ success: true, result, messageId: e.data.messageId });
                     } catch (error) {
-                        self.postMessage({ success: false, error: error.message });
+                        self.postMessage({ success: false, error: error.message, messageId: e.data.messageId });
                     }
                 };
             `;
