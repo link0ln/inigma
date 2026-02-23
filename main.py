@@ -264,9 +264,12 @@ async def startup_event():
 async def shutdown_event():
     """Shutdown cleanup"""
     logger.info("Application shutting down")
-    if scheduler.running:
-        scheduler.shutdown()
-        logger.info("Scheduler stopped")
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+            logger.info("Scheduler stopped")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {e}")
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
