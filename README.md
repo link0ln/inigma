@@ -26,7 +26,7 @@ docker-compose up --build -d
 
 This starts three services on an internal Docker network:
 - `app` — FastAPI backend (distroless container, port 8000 internal)
-- `nginx` — reverse proxy with rate limiting and security headers (port 80 internal)
+- `nginx` — reverse proxy with rate limiting and security headers (port 8080 internal, unprivileged)
 - `cloudflared` — Cloudflare Tunnel for HTTPS ingress
 
 No ports are published to the host. All traffic flows through the Cloudflare Tunnel.
@@ -71,10 +71,12 @@ All containers run on an isolated Docker bridge network. The app container is re
 
 ### Container Hardening
 
-- **Distroless base**: `gcr.io/distroless/python3-debian12:nonroot` — no shell, no coreutils, no package manager
-- **Non-root user**: Runs as uid 65534 (`nonroot`)
-- **Read-only filesystem**: `read_only: true` in docker-compose; only `/app/data` is writable (SQLite volume)
-- **No privilege escalation**: `no-new-privileges: true`
+All three containers run with zero Linux capabilities (`cap_drop: ALL`), read-only root filesystems, and `no-new-privileges`.
+
+- **Distroless app**: `gcr.io/distroless/python3-debian12:nonroot` — no shell, no coreutils, no package manager; uid 65532
+- **Unprivileged nginx**: `nginxinc/nginx-unprivileged` — runs entirely as uid 101, listens on 8080 (no `NET_BIND_SERVICE` needed)
+- **Read-only filesystems**: only `/app/data` (app, SQLite volume) and tmpfs mounts (nginx cache/run, cloudflared tmp) are writable
+- **No privilege escalation**: `no-new-privileges: true` on all containers
 - **No bytecode**: `PYTHONDONTWRITEBYTECODE=1` prevents writes to read-only FS
 - **Multi-stage build**: TailwindCSS compiled at build time (node stage), Python deps installed separately, only artifacts copied to final image
 
