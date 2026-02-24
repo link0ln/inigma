@@ -1,21 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inigma - View Secure Message</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        {{> main.css }}
-    </style>
-    <script>
-        {{> security-utils.js }}
-    </script>
-</head>
+{{> head }}
+<script nonce="__CSP_NONCE__">
+{{> security-utils.js }}
+</script>
 <body class="gradient-bg min-h-screen text-white">
-    <div class="container mx-auto px-4 py-8" x-data="viewApp()">
+    <div class="container mx-auto px-4 py-8" x-data="viewApp">
         <header class="text-center mb-12 fade-in">
             <h1 class="text-5xl font-bold mb-4">
                 <i class="fas fa-lock mr-2"></i>Inigma
@@ -35,7 +25,7 @@
             <div x-show="error && !loading" class="glass-morphism rounded-2xl p-8 fade-in">
                 <div class="text-center mb-6">
                     <i class="fas fa-exclamation-triangle text-5xl text-yellow-400 mb-4"></i>
-                    <h2 class="text-2xl font-bold mb-2" x-text="SecurityUtils.safeText(errorMessage)"></h2>
+                    <h2 class="text-2xl font-bold mb-2" x-text="safeText(errorMessage)"></h2>
                     <p class="opacity-80" x-show="errorMessage.includes('expired')">This message has expired and is no longer available.</p>
                     <p class="opacity-80" x-show="errorMessage.includes('No such')">The requested message could not be found.</p>
                 </div>
@@ -101,7 +91,7 @@
                     </div>
                     
                     <div class="bg-white/10 rounded-lg p-6">
-                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="SecurityUtils.safeText(decryptedMessage)"></pre>
+                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="safeText(decryptedMessage)"></pre>
                     </div>
                     
                     <div class="mt-6 flex justify-between items-center">
@@ -136,7 +126,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="__CSP_NONCE__">
         {{> crypto-functions.js }}
         {{> view-app.js }}
     </script>

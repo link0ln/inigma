@@ -37,13 +37,16 @@ export async function handleDeleteSecret(body, env, request) {
   
   try {
     // Delete using D1 (handles access control internally)
-    const success = await deleteMessage(env, view, uid);
-    
-    if (!success) {
+    const result = await deleteMessage(env, view, uid);
+
+    if (!result.ok) {
+      const status = result.error === 'db_error' ? 503 : 404;
+      const message = result.error === 'db_error' ? 'Service temporarily unavailable' : 'Secret not found or access denied';
       return new Response(JSON.stringify({
         status: 'failed',
-        message: 'Secret not found or access denied',
+        message,
       }), {
+        status,
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),

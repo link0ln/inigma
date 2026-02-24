@@ -1,6 +1,6 @@
-// Alpine.js view app
-function viewApp() {
-    return {
+// Alpine.js view app — registered via Alpine.data() for CSP compatibility
+document.addEventListener('alpine:init', () => {
+    Alpine.data('viewApp', () => ({
         loading: true,
         error: false,
         errorMessage: '',
@@ -39,12 +39,12 @@ function viewApp() {
                 const symmetricKey = await getDecryptedSymmetricKey(cryptoSystem.keyPair);
                 uid = await generateUserIdFromSymmetricKey(symmetricKey);
                 clearSymmetricKeyFromMemory(symmetricKey);
-                console.log('Generated UID from crypto system for view:', uid);
+                console.log('Generated UID from crypto system for view:', uid.substring(0, 8) + '...');
             } catch (error) {
                 console.error('Failed to initialize crypto system for view:', error);
                 // Fallback to a temporary UID for this session
                 uid = 'temp_' + Math.random().toString(36).substring(2, 14);
-                console.log('Using temporary UID for view:', uid);
+                console.log('Using temporary UID for view:', uid.substring(0, 8) + '...');
             }
             
             try {
@@ -133,10 +133,10 @@ function viewApp() {
                 
                 // Re-encrypt the message with user's main symmetric key
                 const salt = window.crypto.getRandomValues(new Uint8Array(16));
-                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
                 const encrypted = await encrypt(message, salt, iv, symmetricKey);
                 
-                await fetch('/api/update', {
+                const response = await fetch('/api/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -147,9 +147,17 @@ function viewApp() {
                         salt: arrayBufferToBase64(salt)
                     })
                 });
-                
-                // Update local state - now user is owner
-                this.isOwner = true;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        this.isOwner = true;
+                    } else {
+                        console.error('Ownership update failed:', data.message);
+                    }
+                } else {
+                    console.error('Ownership update request failed:', response.status);
+                }
                 
                 // Clear symmetric key from memory
                 clearSymmetricKeyFromMemory(symmetricKey);
@@ -180,6 +188,11 @@ function viewApp() {
             await navigator.clipboard.writeText(this.decryptedMessage);
             this.showToast = true;
             setTimeout(() => this.showToast = false, 3000);
-        }
-    }
-}
+        },
+
+        // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
+        safeText(text) {
+            return SecurityUtils.safeText(text);
+        },
+    }));
+});

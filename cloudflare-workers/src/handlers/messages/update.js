@@ -3,14 +3,14 @@
  */
 
 import { getCorsHeaders } from '../../utils/cors.js';
-import { 
-  isValidMessageId, 
-  isValidUid, 
-  isValidEncryptedData, 
-  isValidIv, 
-  isValidSalt 
+import {
+  isValidMessageId,
+  isValidUid,
+  isValidEncryptedData,
+  isValidIv,
+  isValidSalt
 } from '../../utils/validation.js';
-import { retrieveMessage, updateMessageOwner } from '../../utils/database.js';
+import { updateMessageOwner } from '../../utils/database.js';
 
 export async function handleUpdateOwner(body, env, request) {
   const { view, uid, encrypted_message, iv, salt } = body;
@@ -75,43 +75,17 @@ export async function handleUpdateOwner(body, env, request) {
     });
   }
   
-  // Retrieve current data
-  const data = await retrieveMessage(env, view);
-  
-  if (!data) {
+  // Atomically update owner — SQL WHERE uid = '' prevents race conditions
+  const result = await updateMessageOwner(env, view, uid, encrypted_message, iv, salt);
+
+  if (!result.ok) {
+    const statusMap = { not_found: 404, already_owned: 409, db_error: 503 };
+    const messageMap = { not_found: 'Secret not found', already_owned: 'Secret already owned', db_error: 'Service temporarily unavailable' };
     return new Response(JSON.stringify({
       status: 'failed',
-      message: 'No such secret',
+      message: messageMap[result.error] || 'Secret not found or already owned',
     }), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...getCorsHeaders(request),
-      },
-    });
-  }
-  
-  // Check if already owned
-  if (data.uid !== '') {
-    return new Response(JSON.stringify({
-      status: 'failed',
-      message: 'Secret already owned',
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...getCorsHeaders(request),
-      },
-    });
-  }
-  
-  // Update message owner using D1
-  const success = await updateMessageOwner(env, view, uid, encrypted_message, iv, salt);
-  
-  if (!success) {
-    return new Response(JSON.stringify({
-      status: 'failed',
-      message: 'Failed to update secret',
-    }), {
-      status: 500,
+      status: statusMap[result.error] || 404,
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),

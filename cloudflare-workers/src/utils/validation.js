@@ -103,48 +103,36 @@ export function sanitizeString(str) {
 }
 
 /**
- * Add security headers to response (matching Python version)
+ * Build CSP header value with a per-request nonce (for HTML responses)
+ */
+export function buildCspWithNonce(nonce) {
+  return (
+    "default-src 'self'; " +
+    `script-src 'self' 'nonce-${nonce}' https://unpkg.com https://cdnjs.cloudflare.com; ` +
+    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
+    "font-src 'self' https://cdnjs.cloudflare.com; " +
+    "img-src 'self' data:; " +
+    "connect-src 'self'; " +
+    "frame-ancestors 'none'; " +
+    "object-src 'none'; " +
+    "base-uri 'self'"
+  );
+}
+
+/**
+ * Add security headers to response (for non-HTML / API responses)
  */
 export function addSecurityHeaders(headers = {}) {
   return {
     ...headers,
-    "Content-Security-Policy": 
-      "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdnjs.cloudflare.com; " +
-      "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; " +
-      "font-src 'self' https://cdnjs.cloudflare.com; " +
-      "img-src 'self' data:; " +
-      "connect-src 'self'; " +
-      "frame-ancestors 'none'; " +
-      "object-src 'none'; " +
-      "base-uri 'self'",
+    "Content-Security-Policy":
+      "default-src 'none'; " +
+      "frame-ancestors 'none'",
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-XSS-Protection": "1; mode=block"
   };
-}
-
-/**
- * Sanitize text input to prevent XSS (matching Python version exactly)
- */
-export function sanitizeText(text) {
-  if (typeof text !== 'string') {
-    return "";
-  }
-  
-  // HTML escape the text (basic implementation)
-  let sanitized = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-  
-  // Remove any remaining dangerous characters
-  sanitized = sanitized.replace(/[<>"/\\]/g, '');
-  
-  return sanitized.slice(0, 1000); // Limit length to 1000 like Python
 }
 
 /**

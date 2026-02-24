@@ -1,14 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 {{> head }}
-<style>
-{{> main.css }}
-</style>
-<script>
+<script nonce="__CSP_NONCE__">
 {{> security-utils.js }}
 </script>
 <body class="gradient-bg min-h-screen text-white">
-    <div class="container mx-auto px-4 py-8" x-data="app()">
+    <div class="container mx-auto px-4 py-8" x-data="app">
         {{> header }}
 
         <!-- Main Content -->
@@ -27,7 +24,7 @@
         {{> toast }}
     </div>
 
-    <script>
+    <script nonce="__CSP_NONCE__">
         {{> crypto-functions.js }}
         {{> main-app.js }}
     </script>

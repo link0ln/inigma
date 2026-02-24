@@ -1,6 +1,6 @@
-// Alpine.js app
-function app() {
-    return {
+// Alpine.js app — registered via Alpine.data() for CSP compatibility
+document.addEventListener('alpine:init', () => {
+    Alpine.data('app', () => ({
         message: '',
         customName: '',
         ttl: 30,
@@ -42,6 +42,7 @@ function app() {
             total: 0,
             has_more: false
         },
+        storageWarning: false,
         
         async init() {
             console.log('Main app init - Initializing security and crypto system...');
@@ -66,12 +67,18 @@ function app() {
             try {
                 // Initialize crypto system
                 this.cryptoSystem = await initializeCryptoSystem();
-                
+
+                // Warn if IndexedDB is unavailable (keys won't persist)
+                if (!this.cryptoSystem.persistentKeys) {
+                    this.storageWarning = true;
+                    console.warn('IndexedDB unavailable — keys are ephemeral (this session only)');
+                }
+
                 // Generate User ID from symmetric key
                 await this.updateUserIdFromSymmetricKey();
-                
-                console.log('Crypto system initialized, UID:', this.credentials.uid);
-                
+
+                console.log('Crypto system initialized, UID:', this.credentials.uid.substring(0, 8) + '...');
+
                 // Load secrets on init
                 this.loadSecrets();
                 this.loadPendingSecrets();
@@ -105,42 +112,6 @@ function app() {
             }
         },
         
-        async regenerateCryptoSystem() {
-            if (!confirm('This will regenerate your entire crypto system. You will lose access to all current secrets. Continue?')) {
-                return;
-            }
-            
-            try {
-                // Clear IndexedDB keys
-                if (this.cryptoSystem.keyStorage) {
-                    await this.cryptoSystem.keyStorage.clearKeys();
-                }
-                
-                // Clear localStorage
-                localStorage.removeItem('inigma_encrypted_symmetric_key');
-                
-                // Reinitialize crypto system
-                this.cryptoSystem = await initializeCryptoSystem();
-                
-                // Update User ID
-                await this.updateUserIdFromSymmetricKey();
-                
-                // Show success message
-                this.toastMessage = 'Crypto system regenerated!';
-                this.showToast = true;
-                setTimeout(() => this.showToast = false, 3000);
-                
-                // Reload secrets (should be empty now)
-                this.loadSecrets();
-                this.loadPendingSecrets();
-                
-            } catch (error) {
-                console.error('Failed to regenerate crypto system:', error);
-                alert('Failed to regenerate crypto system: ' + error.message);
-            }
-        },
-        
-        
         async processMessage() {
             if (!this.message || this.processing) return;
             
@@ -151,10 +122,15 @@ function app() {
                 const secretSymmetricKey = generateSymmetricKey();
                 
                 const salt = window.crypto.getRandomValues(new Uint8Array(16));
-                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
                 
                 const encrypted = await encrypt(this.message, salt, iv, secretSymmetricKey);
                 
+                // Generate idempotency key to prevent duplicate creation on retry
+                const idempotencyBytes = new Uint8Array(16);
+                crypto.getRandomValues(idempotencyBytes);
+                const idempotencyKey = Array.from(idempotencyBytes, b => b.toString(16).padStart(2, '0')).join('');
+
                 const response = await fetch('/api/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -164,7 +140,8 @@ function app() {
                         salt: arrayBufferToBase64(salt),
                         ttl: parseInt(this.ttl) || 0,
                         custom_name: this.customName,
-                        creator_uid: this.credentials.uid
+                        creator_uid: this.credentials.uid,
+                        idempotency_key: idempotencyKey
                     })
                 });
                 
@@ -210,11 +187,6 @@ function app() {
                 this.exportedSymmetricKey = symmetricKey;
                 this.showExportedKey = false;
                 this.showExportKeyModal = true;
-                
-                // Clear symmetric key from memory after showing modal
-                setTimeout(() => {
-                    clearSymmetricKeyFromMemory(symmetricKey);
-                }, 100);
             } catch (error) {
                 console.error('Failed to export symmetric key:', error);
                 alert('Failed to export key: ' + error.message);
@@ -239,8 +211,17 @@ function app() {
         },
         
         async saveImportedKey() {
-            if (!this.importSymmetricKey.trim()) {
+            const key = this.importSymmetricKey.trim();
+            if (!key) {
                 alert('Please enter a symmetric key');
+                return;
+            }
+            if (key.length < 16) {
+                alert('Key is too short. Minimum 16 characters required.');
+                return;
+            }
+            if (key.length > 256) {
+                alert('Key is too long. Maximum 256 characters allowed.');
                 return;
             }
             
@@ -249,7 +230,7 @@ function app() {
             try {
                 // Encrypt the imported symmetric key with current RSA public key
                 const encryptedSymmetricKey = await encryptSymmetricKey(
-                    this.importSymmetricKey.trim(), 
+                    key,
                     this.cryptoSystem.keyPair.publicKey
                 );
                 
@@ -470,35 +451,83 @@ function app() {
             if (!confirm('This will regenerate your entire crypto system. You will lose access to all current secrets. Continue?')) {
                 return;
             }
-            
+
             try {
                 // Clear IndexedDB keys
                 if (this.cryptoSystem.keyStorage) {
                     await this.cryptoSystem.keyStorage.clearKeys();
                 }
-                
+
                 // Clear localStorage
                 localStorage.removeItem('inigma_encrypted_symmetric_key');
-                
+
                 // Reinitialize crypto system
                 this.cryptoSystem = await initializeCryptoSystem();
-                
+
                 // Update User ID
                 await this.updateUserIdFromSymmetricKey();
-                
+
                 // Show success message
                 this.toastMessage = 'Crypto system regenerated!';
                 this.showToast = true;
                 setTimeout(() => this.showToast = false, 3000);
-                
+
                 // Reload secrets (should be empty now)
                 this.loadSecrets();
                 this.loadPendingSecrets();
-                
+
             } catch (error) {
                 console.error('Failed to regenerate crypto system:', error);
                 alert('Failed to regenerate crypto system: ' + error.message);
             }
         },
-    }
-}
+
+        // CSP-safe helper methods (replace optional chaining and multi-statement handlers)
+        closeExportKeyModal() {
+            this.showExportKeyModal = false;
+            this.exportedSymmetricKey = '';
+            this.showExportedKey = false;
+        },
+
+        openImportKeyModal() {
+            this.showImportKeyModal = true;
+            this.importSymmetricKey = '';
+        },
+
+        closeSuccessModal() {
+            this.showModal = false;
+            this.message = '';
+            this.customName = '';
+            this.links.full = '';
+            this.links.noKey = '';
+            this.links.keyOnly = '';
+            this.loadSecrets();
+            this.loadPendingSecrets();
+        },
+
+        getDeleteTargetName() {
+            return (this.secretToDelete && this.secretToDelete.custom_name) || 'Untitled Secret';
+        },
+
+        isDeleteTargetDeleting() {
+            return this.secretToDelete && this.deletingSecrets[this.secretToDelete.id] || false;
+        },
+
+        getDeleteButtonText() {
+            return this.isDeleteTargetDeleting() ? 'Deleting...' : 'Delete';
+        },
+
+        handleCustomNameInput(value) {
+            this.customName = SecurityUtils.sanitizeCustomName(value);
+        },
+
+        // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
+        safeText(text) {
+            return SecurityUtils.safeText(text);
+        },
+
+        safeName(name) {
+            return SecurityUtils.sanitizeCustomName(name || 'Untitled Secret');
+        },
+    }));
+});

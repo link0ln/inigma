@@ -8,12 +8,14 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
+PERMANENT_TTL = 9999999999
+
 def calculate_time_remaining(ttl: int, current_time: int) -> Dict[str, Any]:
     """
     Calculate time remaining for a secret with smart formatting
     Returns object with time remaining and formatted display string
     """
-    if ttl == 9999999999:
+    if ttl == PERMANENT_TTL:
         return {
             "value": -1,
             "display": "Permanent",
@@ -120,6 +122,8 @@ class DatabaseManager:
         conn = None
         try:
             conn = sqlite3.connect(self.db_path)
+            conn.execute('PRAGMA journal_mode=WAL')
+            conn.execute('PRAGMA busy_timeout=5000')
             conn.row_factory = sqlite3.Row  # Enable dict-like access
             yield conn
         except Exception as e:
@@ -174,40 +178,33 @@ class DatabaseManager:
             logger.error(f"Error retrieving message {message_id}: {e}")
             return None
     
-    def update_message_owner(self, message_id: str, uid: str, encrypted_message: str, 
-                           iv: str, salt: str) -> bool:
-        """Update message owner and content"""
+    def update_message_owner(self, message_id: str, uid: str, encrypted_message: str,
+                           iv: str, salt: str) -> Dict[str, Any]:
+        """Update message owner and content. Returns structured result matching Workers."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                
-                # Debug: Check current state
-                cursor.execute("SELECT id, uid FROM messages WHERE id = ?", (message_id,))
-                current_state = cursor.fetchone()
-                logger.debug(f"Current state for message {message_id}: {current_state}")
-                
+
                 cursor.execute("""
-                    UPDATE messages 
+                    UPDATE messages
                     SET uid = ?, encrypted_message = ?, iv = ?, salt = ?
                     WHERE id = ? AND uid = ''
                 """, (uid, encrypted_message, iv, salt, message_id))
-                
+                conn.commit()
+
                 if cursor.rowcount > 0:
-                    conn.commit()
-                    logger.debug(f"Message {message_id} owner updated successfully to uid: {uid}")
-                    
-                    # Debug: Verify update
-                    cursor.execute("SELECT id, uid FROM messages WHERE id = ?", (message_id,))
-                    new_state = cursor.fetchone()
-                    logger.debug(f"New state for message {message_id}: {new_state}")
-                    
-                    return True
-                else:
-                    logger.warning(f"Message {message_id} not found or already owned")
-                    return False
+                    logger.debug(f"Message {message_id} owner updated successfully")
+                    return {"ok": True}
+
+                # Distinguish: not found vs already owned
+                cursor.execute("SELECT uid FROM messages WHERE id = ?", (message_id,))
+                row = cursor.fetchone()
+                if row is None:
+                    return {"ok": False, "error": "not_found"}
+                return {"ok": False, "error": "already_owned"}
         except Exception as e:
             logger.error(f"Error updating message owner {message_id}: {e}")
-            return False
+            return {"ok": False, "error": "db_error"}
     
     def update_custom_name(self, message_id: str, uid: str, custom_name: str) -> bool:
         """Update custom name for a message"""
@@ -215,13 +212,13 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    UPDATE messages 
+                    UPDATE messages
                     SET custom_name = ?
                     WHERE id = ? AND uid = ?
                 """, (custom_name, message_id, uid))
-                
+                conn.commit()
+
                 if cursor.rowcount > 0:
-                    conn.commit()
                     logger.debug(f"Custom name updated for message {message_id}")
                     return True
                 else:
@@ -231,27 +228,27 @@ class DatabaseManager:
             logger.error(f"Error updating custom name for {message_id}: {e}")
             return False
     
-    def delete_message(self, message_id: str, uid: str) -> bool:
-        """Delete a message (only if user owns it or created it)"""
+    def delete_message(self, message_id: str, uid: str) -> Dict[str, Any]:
+        """Delete a message (only if user owns it or created it). Returns structured result."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 # Delete if user owns it or created it (for pending messages)
                 cursor.execute("""
-                    DELETE FROM messages 
+                    DELETE FROM messages
                     WHERE id = ? AND (uid = ? OR (uid = '' AND creator_uid = ?))
                 """, (message_id, uid, uid))
-                
+                conn.commit()
+
                 if cursor.rowcount > 0:
-                    conn.commit()
                     logger.debug(f"Message {message_id} deleted successfully")
-                    return True
+                    return {"ok": True}
                 else:
                     logger.warning(f"Message {message_id} not found or access denied")
-                    return False
+                    return {"ok": False, "error": "not_found"}
         except Exception as e:
             logger.error(f"Error deleting message {message_id}: {e}")
-            return False
+            return {"ok": False, "error": "db_error"}
     
     def list_user_secrets(self, uid: str, page: int = 1, per_page: int = 10) -> Dict[str, Any]:
         """List user's owned secrets with pagination"""
@@ -271,20 +268,20 @@ class DatabaseManager:
                 
                 # Get total count
                 cursor.execute("""
-                    SELECT COUNT(*) FROM messages 
-                    WHERE uid = ? AND (ttl > ? OR ttl = 9999999999)
-                """, (uid, current_time))
+                    SELECT COUNT(*) FROM messages
+                    WHERE uid = ? AND (ttl > ? OR ttl = ?)
+                """, (uid, current_time, PERMANENT_TTL))
                 total = cursor.fetchone()[0]
                 logger.debug(f"Total count for uid {uid}: {total}")
-                
+
                 # Get paginated results
                 cursor.execute("""
-                    SELECT id, custom_name, ttl, created_at 
-                    FROM messages 
-                    WHERE uid = ? AND (ttl > ? OR ttl = 9999999999)
+                    SELECT id, custom_name, ttl, created_at
+                    FROM messages
+                    WHERE uid = ? AND (ttl > ? OR ttl = ?)
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                """, (uid, current_time, per_page, offset))
+                """, (uid, current_time, PERMANENT_TTL, per_page, offset))
                 
                 secrets = []
                 for row in cursor.fetchall():
@@ -324,19 +321,19 @@ class DatabaseManager:
                 
                 # Get total count
                 cursor.execute("""
-                    SELECT COUNT(*) FROM messages 
-                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = 9999999999)
-                """, (creator_uid, current_time))
+                    SELECT COUNT(*) FROM messages
+                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = ?)
+                """, (creator_uid, current_time, PERMANENT_TTL))
                 total = cursor.fetchone()[0]
-                
+
                 # Get paginated results
                 cursor.execute("""
-                    SELECT id, custom_name, ttl, created_at 
-                    FROM messages 
-                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = 9999999999)
+                    SELECT id, custom_name, ttl, created_at
+                    FROM messages
+                    WHERE creator_uid = ? AND uid = '' AND (ttl > ? OR ttl = ?)
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                """, (creator_uid, current_time, per_page, offset))
+                """, (creator_uid, current_time, PERMANENT_TTL, per_page, offset))
                 
                 secrets = []
                 for row in cursor.fetchall():
@@ -372,9 +369,9 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    DELETE FROM messages 
-                    WHERE (ttl < ? AND ttl != 9999999999) OR created_at < ?
-                """, (current_time, cutoff_time))
+                    DELETE FROM messages
+                    WHERE (ttl < ? AND ttl != ?) OR created_at < ?
+                """, (current_time, PERMANENT_TTL, cutoff_time))
                 
                 deleted_count = cursor.rowcount
                 conn.commit()

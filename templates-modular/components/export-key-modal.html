@@ -14,14 +14,14 @@
          x-transition:leave="transition ease-in duration-200" 
          x-transition:leave-start="opacity-100 scale-100" 
          x-transition:leave-end="opacity-0 scale-95"
-         @click.away="showExportKeyModal = false"
+         @click.away="closeExportKeyModal()"
          class="bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full border border-white/20 shadow-2xl">
         
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-white">
                 <i class="fas fa-download mr-2"></i>Export Symmetric Key
             </h3>
-            <button @click="showExportKeyModal = false" 
+            <button @click="closeExportKeyModal()" 
                     class="text-white/60 hover:text-white transition-colors">
                 <i class="fas fa-times text-xl"></i>
             </button>

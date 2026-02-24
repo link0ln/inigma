@@ -4,6 +4,19 @@ const { execSync } = require('child_process');
 
 console.log('Building modular Inigma for Cloudflare Workers...');
 
+// Compile TailwindCSS
+console.log('Compiling TailwindCSS...');
+try {
+  execSync('npx tailwindcss -i tailwind-input.css -o ../templates-modular/styles/tailwind-compiled.css --minify', {
+    cwd: __dirname,
+    stdio: 'pipe'
+  });
+  console.log('  ✓ TailwindCSS compiled');
+} catch (error) {
+  console.error('Failed to compile TailwindCSS:', error.stderr?.toString() || error.message);
+  process.exit(1);
+}
+
 // Get version info from Git
 function getVersionInfo() {
   try {
@@ -38,39 +51,48 @@ function getVersionInfo() {
 }
 
 // First, build templates from modular structure
-function buildTemplate(templatePath, outputPath) {
+function resolveIncludes(content) {
+    // Recursively resolve {{> filename }} includes until none remain
+    const includePattern = /\{\{>\s*([^}]+)\s*\}\}/g;
+    let result = content;
+    let hadIncludes = true;
+    let depth = 0;
+    const maxDepth = 10;
+
+    while (hadIncludes && depth < maxDepth) {
+        hadIncludes = false;
+        depth++;
+        result = result.replace(includePattern, (match, filename) => {
+            hadIncludes = true;
+            const trimmedFilename = filename.trim();
+
+            let filePath;
+            if (trimmedFilename.endsWith('.css')) {
+                filePath = path.join(__dirname, '../templates-modular/styles', trimmedFilename);
+            } else if (trimmedFilename.endsWith('.js')) {
+                filePath = path.join(__dirname, '../templates-modular/scripts', trimmedFilename);
+            } else {
+                filePath = path.join(__dirname, '../templates-modular/components', trimmedFilename + '.html');
+            }
+
+            if (!fs.existsSync(filePath)) {
+                console.warn(`Warning: File not found: ${filePath}`);
+                return `<!-- Missing: ${trimmedFilename} -->`;
+            }
+
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            console.log(`  ✓ Included: ${trimmedFilename}`);
+            return fileContent;
+        });
+    }
+
+    return result;
+}
+
+function buildTemplate(templatePath) {
     console.log(`Building ${templatePath}...`);
-    
     let templateContent = fs.readFileSync(templatePath, 'utf8');
-    
-    // Process all {{> filename }} includes
-    templateContent = templateContent.replace(/\{\{>\s*([^}]+)\s*\}\}/g, (match, filename) => {
-        const trimmedFilename = filename.trim();
-        
-        // Determine the file type and directory
-        let filePath;
-        if (trimmedFilename.endsWith('.css')) {
-            filePath = path.join(__dirname, '../templates-modular/styles', trimmedFilename);
-        } else if (trimmedFilename.endsWith('.js')) {
-            filePath = path.join(__dirname, '../templates-modular/scripts', trimmedFilename);
-        } else {
-            // Assume it's an HTML component
-            filePath = path.join(__dirname, '../templates-modular/components', trimmedFilename + '.html');
-        }
-        
-        // Check if file exists
-        if (!fs.existsSync(filePath)) {
-            console.warn(`Warning: File not found: ${filePath}`);
-            return `<!-- Missing: ${trimmedFilename} -->`;
-        }
-        
-        // Read and return file content
-        const content = fs.readFileSync(filePath, 'utf8');
-        console.log(`  ✓ Included: ${trimmedFilename}`);
-        return content;
-    });
-    
-    return templateContent;
+    return resolveIncludes(templateContent);
 }
 
 // Build templates
@@ -155,9 +177,6 @@ function convertToWorkerFormat(content, filePath) {
   return content;
 }
 
-// Read crypto functions file from modular templates
-const fallbackCryptoJS = fs.readFileSync(path.join(__dirname, '../templates-modular/scripts/crypto-functions.js'), 'utf8');
-
 // Bundle all modules
 const srcDir = path.join(__dirname, 'src');
 const bundledModules = bundleModules(srcDir);
@@ -187,7 +206,6 @@ const templatesContent = `
 // HTML Templates
 const indexHTML = \`${escapeForJS(indexHTML)}\`;
 const viewHTML = \`${escapeForJS(viewHTML)}\`;
-const fallbackCryptoJS = \`${escapeForJS(fallbackCryptoJS)}\`;
 
 // Version information
 const VERSION_INFO = ${JSON.stringify(versionInfo, null, 2)};
@@ -195,7 +213,6 @@ const VERSION_INFO = ${JSON.stringify(versionInfo, null, 2)};
 // Make templates globally available
 globalThis.indexHTML = indexHTML;
 globalThis.viewHTML = viewHTML;
-globalThis.fallbackCryptoJS = fallbackCryptoJS;
 globalThis.VERSION_INFO = VERSION_INFO;
 `;
 

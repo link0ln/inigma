@@ -17,21 +17,6 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-// Convert URL-safe base64 key back to regular format for crypto operations
-function decodeUrlSafeKey(urlSafeKey) {
-    // Restore base64 padding and special characters
-    let key = urlSafeKey
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-    
-    // Add padding if needed
-    while (key.length % 4) {
-        key += '=';
-    }
-    
-    return key;
-}
-
 // IndexedDB utilities for storing non-extractable keys
 class KeyStorage {
     constructor() {
@@ -195,9 +180,10 @@ async function generateUserIdFromSymmetricKey(symmetricKey) {
 async function initializeCryptoSystem() {
     const ENCRYPTED_SYMMETRIC_KEY_STORAGE_KEY = 'inigma_encrypted_symmetric_key';
     const keyStorage = new KeyStorage();
-    
+
     let keyPair, encryptedSymmetricKey;
-    
+    let persistentKeys = true;
+
     // Try to load existing RSA keys from IndexedDB
     try {
         keyPair = await keyStorage.getKeyPair();
@@ -207,39 +193,41 @@ async function initializeCryptoSystem() {
     } catch (error) {
         console.log('Failed to load RSA keys from IndexedDB:', error);
         keyPair = null;
+        persistentKeys = false;
     }
-    
+
     // If no RSA keys or failed to load, generate new ones
     if (!keyPair) {
         console.log('Generating new RSA key pair...');
         keyPair = await generateAsymmetricKeyPair();
-        
+
         // Store the new RSA keys in IndexedDB
         try {
             await keyStorage.storeKeyPair(keyPair);
             console.log('New RSA keys generated and stored in IndexedDB');
         } catch (error) {
             console.error('Failed to store RSA keys in IndexedDB:', error);
+            persistentKeys = false;
             // Continue anyway - keys will be in memory for this session
         }
     }
-    
+
     // Check for existing encrypted symmetric key
     encryptedSymmetricKey = localStorage.getItem(ENCRYPTED_SYMMETRIC_KEY_STORAGE_KEY);
-    
+
     if (!encryptedSymmetricKey) {
         console.log('Generating new symmetric key...');
         // Generate and encrypt new symmetric key
         const symmetricKey = generateSymmetricKey();
         encryptedSymmetricKey = await encryptSymmetricKey(symmetricKey, keyPair.publicKey);
         localStorage.setItem(ENCRYPTED_SYMMETRIC_KEY_STORAGE_KEY, encryptedSymmetricKey);
-        
+
         // Clear symmetric key from memory
         clearSymmetricKeyFromMemory(symmetricKey);
         console.log('New symmetric key generated and encrypted');
     } else {
         console.log('Using existing encrypted symmetric key');
-        
+
         // Test if we can decrypt the stored key with current RSA keys
         try {
             const testDecrypt = await decryptSymmetricKey(encryptedSymmetricKey, keyPair.privateKey);
@@ -254,8 +242,8 @@ async function initializeCryptoSystem() {
             clearSymmetricKeyFromMemory(symmetricKey);
         }
     }
-    
-    return { keyPair, encryptedSymmetricKey, keyStorage };
+
+    return { keyPair, encryptedSymmetricKey, keyStorage, persistentKeys };
 }
 
 // Get decrypted symmetric key for operations
@@ -270,12 +258,13 @@ async function getDecryptedSymmetricKey(keyPair) {
     return await decryptSymmetricKey(encryptedSymmetricKey, keyPair.privateKey);
 }
 
-// Clear symmetric key from memory (for security)
+// WARNING: This function is a no-op. JavaScript strings are immutable and
+// reassigning a local parameter does not affect the caller's variable or
+// clear the original string from memory. Reliable memory clearing of JS
+// strings is not possible without Uint8Array-based key storage.
+// Kept to avoid breaking call sites.
 function clearSymmetricKeyFromMemory(symmetricKey) {
-    if (typeof symmetricKey === 'string') {
-        // Overwrite string with random data
-        symmetricKey = null;
-    }
+    symmetricKey = null;
 }
 
 async function getKeyMaterial(password) {
@@ -335,15 +324,3 @@ async function decrypt(encryptedData, salt, iv, password) {
     );
 }
 
-function generatePassword(length) {
-    // Use cryptographically secure random generation
-    const array = new Uint8Array(length);
-    crypto.getRandomValues(array);
-    
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(array[i] % chars.length);
-    }
-    return result;
-}

@@ -56,8 +56,9 @@ export async function handlePost(request, env) {
     
   } catch (error) {
     console.error('Error handling POST request:', error);
-    return new Response(JSON.stringify({ error: 'Invalid request' }), {
-      status: 400,
+    const isBadRequest = error instanceof SyntaxError;
+    return new Response(JSON.stringify({ error: isBadRequest ? 'Invalid JSON' : 'Internal server error' }), {
+      status: isBadRequest ? 400 : 500,
       headers: {
         'Content-Type': 'application/json',
         ...getCorsHeaders(request),

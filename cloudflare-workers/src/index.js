@@ -9,6 +9,7 @@ import { handlePost } from './handlers/post.js';
 import { cleanupOldMessages } from './utils/database.js';
 import { getCorsHeaders } from './utils/cors.js';
 import { checkRateLimit, addRateLimitHeaders, createRateLimitResponse } from './utils/rateLimit.js';
+import { logger, setRequestId, generateRequestId } from './utils/logger.js';
 
 /**
  * Handle scheduled events (cleanup) - like Python cron job
@@ -23,53 +24,66 @@ async function handleScheduled(event, env, ctx) {
  */
 export default {
   async fetch(request, env, ctx) {
-    const method = request.method;
-    const url = new URL(request.url);
+    const requestId = generateRequestId();
+    setRequestId(requestId);
 
-    // OPTIONS requests bypass rate limiting
-    if (method === 'OPTIONS') {
-      return handleOptions(request);
-    }
+    try {
+      const method = request.method;
+      const url = new URL(request.url);
 
-    // Apply rate limiting to all API endpoints
-    if (url.pathname.startsWith('/api/')) {
-      const rateLimit = await checkRateLimit(request, env);
+      logger.info('Incoming request', { method, path: url.pathname });
 
-      if (!rateLimit.allowed) {
-        console.warn(`Rate limit exceeded for ${url.pathname} from ${request.headers.get('CF-Connecting-IP') || 'unknown'}`);
-        return createRateLimitResponse(rateLimit, getCorsHeaders(request));
+      // OPTIONS requests bypass rate limiting
+      if (method === 'OPTIONS') {
+        return handleOptions(request);
       }
 
-      // Process request
-      let response;
+      // Apply rate limiting to all API endpoints
+      if (url.pathname.startsWith('/api/')) {
+        const rateLimit = await checkRateLimit(request, env);
+
+        if (!rateLimit.allowed) {
+          console.warn(`Rate limit exceeded for ${url.pathname} from ${request.headers.get('CF-Connecting-IP') || 'unknown'}`);
+          return createRateLimitResponse(rateLimit, getCorsHeaders(request));
+        }
+
+        // Process request
+        let response;
+        if (method === 'GET') {
+          response = await handleGet(request, env);
+        } else if (method === 'POST') {
+          response = await handlePost(request, env);
+        } else {
+          return new Response('Method not allowed', {
+            status: 405,
+            headers: getCorsHeaders(request),
+          });
+        }
+
+        // Add rate limit headers to successful responses
+        return addRateLimitHeaders(response, rateLimit, request);
+      }
+
+      // Non-API routes (HTML pages) - no rate limiting
       if (method === 'GET') {
-        response = await handleGet(request, env);
-      } else if (method === 'POST') {
-        response = await handlePost(request, env);
-      } else {
-        return new Response('Method not allowed', {
-          status: 405,
-          headers: getCorsHeaders(request),
-        });
+        return await handleGet(request, env);
       }
 
-      // Add rate limit headers to successful responses
-      return addRateLimitHeaders(response, rateLimit, request);
-    }
+      if (method === 'POST') {
+        return await handlePost(request, env);
+      }
 
-    // Non-API routes (HTML pages) - no rate limiting
-    if (method === 'GET') {
-      return await handleGet(request, env);
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: getCorsHeaders(request),
+      });
+    } catch (error) {
+      logger.error('Unhandled error in fetch handler', { error: error.message, stack: error.stack });
+      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
-
-    if (method === 'POST') {
-      return await handlePost(request, env);
-    }
-
-    return new Response('Method not allowed', {
-      status: 405,
-      headers: getCorsHeaders(request),
-    });
   },
   
   async scheduled(event, env, ctx) {

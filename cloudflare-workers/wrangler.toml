@@ -1,3 +1,6 @@
+# NOTE: D1 database_id and KV namespace id values below are resource
+# identifiers, NOT credentials. They are useless without an API token
+# and are safe to commit per Cloudflare's recommended workflow.
 name = "inigma"
 main = "index.js"
 compatibility_date = "2024-01-01"
