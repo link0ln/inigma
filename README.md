@@ -1,158 +1,152 @@
 # Inigma
 
-Inigma is a secure message sharing application that allows users to send private information safely with end-to-end encryption. The application features client-side AES encryption, TTL-based message expiration, user ownership controls, custom naming, and automatic cleanup of old messages.
+Zero-knowledge encrypted message sharing. Messages are encrypted client-side with AES-256-GCM (PBKDF2 800k iterations); the server never sees plaintext. Decryption keys are passed via URL fragments (`#key=...`), which browsers don't send to the server.
 
 ## Features
 
-- **End-to-End Encryption**: Client-side AES-256-GCM encryption using Web Crypto API
-- **Message Expiration**: Automatic TTL-based message cleanup
-- **User Ownership**: Credential-based message ownership and management
-- **Custom Names**: Optional custom names for better organization
-- **Secure Communication**: HTTPS with nginx proxy and security headers
-- **Responsive Design**: Mobile-friendly interface
-- **Auto-Cleanup**: Removes expired messages automatically
+- **Zero-Knowledge Encryption**: AES-256-GCM + PBKDF2 (800k iterations), entirely client-side
+- **Key Fragment Delivery**: Decryption keys in URL hash — never sent to the server
+- **RSA Key Pairs**: Non-extractable RSA-OAEP 2048-bit keys stored in IndexedDB
+- **Message Expiration**: TTL-based expiration with automatic cleanup
+- **Ownership Transfer**: Unclaimed secrets can be claimed by the first viewer
+- **Custom Names**: Optional labels for organizing secrets
+- **Nonce-Based CSP**: Strict Content Security Policy without `unsafe-inline` or `unsafe-eval`
+- **Distroless Container**: Minimal attack surface — no shell, no package manager
 
 ## Quick Start
 
-### Using Docker Compose (Recommended)
+### Docker Compose with Cloudflare Tunnel (Production)
 
 ```bash
-# Clone and navigate to the project
-git clone <repository-url>
-cd inigma
+cp .env.example .env
+# Edit .env: set CF_DOMAIN, CF_TUNNEL_TOKEN, DOMAIN, CORS_ORIGINS
 
-# Create data directory for persistent database storage
-mkdir -p data
-
-# Start the application
 docker-compose up --build -d
-
-# Access the application
-# HTTPS: https://localhost:8443
-# HTTP: http://localhost:8080 (redirects to HTTPS)
 ```
 
-### Development Mode
+This starts three services on an internal Docker network:
+- `app` — FastAPI backend (distroless container, port 8000 internal)
+- `nginx` — reverse proxy with rate limiting and security headers (port 80 internal)
+- `cloudflared` — Cloudflare Tunnel for HTTPS ingress
+
+No ports are published to the host. All traffic flows through the Cloudflare Tunnel.
+
+### Local Development
 
 ```bash
-# Install Python dependencies
 pip install -r requirements.txt
-
-# Run development server
 python main.py
 # Access at http://localhost:8000
 ```
 
-### Environment Configuration
-
-```bash
-# Copy example environment file
-cp .env.example .env
-
-# Edit environment variables as needed
-# DOMAIN - Domain for generated links (default: localhost:8443)
-# CORS_ORIGINS - Allowed CORS origins (default: https://localhost:8443)
-```
-
 ## Architecture
 
-Inigma supports two deployment architectures:
+### Dual Backend
 
-### 1. Docker Deployment (Recommended for Self-Hosting)
+Two independent backends implement the same API and share the same frontend templates:
 
-- **FastAPI Backend**: REST API with SQLite database storage
-- **Nginx Proxy**: HTTPS termination with self-signed certificates
-- **Client-Side Encryption**: Web Crypto API for AES encryption
-- **SQLite Database**: Persistent storage with indexed queries for better performance
+| | Python/FastAPI | Cloudflare Workers |
+|---|---|---|
+| **Runtime** | Docker (self-hosted) | Cloudflare edge (serverless) |
+| **Database** | SQLite | D1 + KV |
+| **Entry point** | `main.py` | `cloudflare-workers/src/index.js` |
+| **Template resolution** | Python at serve time | `build.js` at build time |
 
-#### Network Architecture
-
-```
-Internet → Nginx (8080/8443) → Internal Network → Inigma App (8000)
-```
-
-- **External Access**: Only nginx is exposed to the internet
-- **Internal Communication**: App runs on internal Docker network
-- **SSL Termination**: Nginx handles HTTPS with self-signed certificates
-
-### 2. Cloudflare Workers Deployment (Serverless)
-
-- **Edge Runtime**: Deployed on Cloudflare's global edge network
-- **D1 Database**: Cloudflare's SQLite-based database for edge computing
-- **Custom Domain**: Can be deployed on custom domains
-- **Global CDN**: Automatic global distribution and caching
-
-#### Cloudflare Architecture
+### Network Topology (Docker)
 
 ```
-Internet → Cloudflare Edge → Worker Runtime → D1 Database
+Internet → Cloudflare Tunnel → nginx (rate limiting, headers) → FastAPI app → SQLite
 ```
 
-**Production Instance**: [https://inigma.idone.su](https://inigma.idone.su)
-
-For detailed Cloudflare Workers deployment instructions, see [`cloudflare-workers/README.md`](cloudflare-workers/README.md).
+All containers run on an isolated Docker bridge network. The app container is read-only with a single writable volume for the SQLite database.
 
 ### Security Model
 
-- All encryption/decryption happens client-side
-- Server never sees plaintext content
-- Messages can be bound to user credentials
-- HTTPS required for Web Crypto API
-- Strict Content Security Policy headers
-- Input validation and sanitization
+- All encryption/decryption happens client-side via Web Crypto API
+- Server stores only ciphertext, IV, and salt — never plaintext or keys
+- User identity derived from symmetric key: `SHA-256(key)[:12]` → UID
+- RSA key pair (non-extractable) stored in IndexedDB; encrypted symmetric key in localStorage
+- Nonce-based Content Security Policy (no `unsafe-inline`, no `unsafe-eval`)
+- Alpine.js CSP build for eval-free reactivity
 
-## API Reference
+### Container Hardening
 
-### Endpoints
+- **Distroless base**: `gcr.io/distroless/python3-debian12:nonroot` — no shell, no coreutils, no package manager
+- **Non-root user**: Runs as uid 65534 (`nonroot`)
+- **Read-only filesystem**: `read_only: true` in docker-compose; only `/app/data` is writable (SQLite volume)
+- **No privilege escalation**: `no-new-privileges: true`
+- **No bytecode**: `PYTHONDONTWRITEBYTECODE=1` prevents writes to read-only FS
+- **Multi-stage build**: TailwindCSS compiled at build time (node stage), Python deps installed separately, only artifacts copied to final image
 
-- `POST /api/create` - Create new encrypted message
-- `POST /api/view` - View message (requires credentials if owned)
-- `POST /api/update` - Claim ownership of message
-- `POST /api/list-secrets` - List user's messages with pagination
-- `POST /api/update-custom-name` - Update message custom name
-- `POST /api/delete-secret` - Delete user's message
-- `GET /health` - Health check endpoint
+## API Endpoints
 
-### Message Structure
+All mutations use POST.
 
-Messages are stored in the database with the following structure:
+| Endpoint | Description |
+|---|---|
+| `POST /api/create` | Create encrypted message |
+| `POST /api/view` | Retrieve message (requires UID if owned) |
+| `POST /api/update` | Claim ownership (re-encrypt with owner's key) |
+| `POST /api/list-secrets` | List owned secrets with pagination |
+| `POST /api/list-pending-secrets` | List unclaimed secrets by creator |
+| `POST /api/update-custom-name` | Update secret label |
+| `POST /api/delete-secret` | Delete secret |
+| `GET /health` | Health check |
+
+### Database Schema
 
 ```sql
--- SQLite/D1 Database Schema
 CREATE TABLE messages (
-    id TEXT PRIMARY KEY,              -- Message ID
-    ttl INTEGER NOT NULL,             -- Time to live (Unix timestamp)
-    uid TEXT NOT NULL DEFAULT '',    -- Owner user ID (empty if unclaimed)
-    encrypted_message TEXT NOT NULL, -- Base64 encrypted content
-    iv TEXT NOT NULL,                -- Base64 initialization vector
-    salt TEXT NOT NULL,              -- Base64 salt for key derivation
-    custom_name TEXT DEFAULT '',     -- Optional custom name
-    creator_uid TEXT DEFAULT '',     -- Creator user ID
-    created_at INTEGER NOT NULL      -- Creation timestamp
+    id TEXT PRIMARY KEY,
+    ttl INTEGER NOT NULL,
+    uid TEXT NOT NULL DEFAULT '',
+    encrypted_message TEXT NOT NULL,
+    iv TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    custom_name TEXT DEFAULT '',
+    creator_uid TEXT DEFAULT '',
+    created_at INTEGER NOT NULL
 );
 ```
 
-## Deployment Options
+## Testing
 
-### 1. Docker Compose (Recommended for Self-Hosting)
-
-The main deployment method using nginx proxy:
+Integration tests run the Python backend in Docker and exercise all API endpoints with a Python crypto client that replicates the browser-side encryption.
 
 ```bash
-docker-compose up --build -d
+# Install test dependencies
+pip install -r tests/requirements.txt
+
+# Run all 30 tests (starts Docker automatically, tears down after)
+pytest tests/ -v
+
+# Run a specific test group
+pytest tests/test_integration.py -v -k "test_create"
 ```
 
-**Services:**
-- `inigma-app`: FastAPI application (internal network only)
-- `inigma-nginx`: Nginx proxy with HTTPS (exposed ports 8080, 8443)
+Tests use `tests/docker-compose.test.yaml`, which publishes port 8000 to the host (unlike production compose which uses only internal networking).
 
-**Access:**
-- HTTPS: https://localhost:8443
-- HTTP: http://localhost:8080 (redirects to HTTPS)
+### Test Coverage
+
+- Health check
+- Create & view with various TTL values (default, custom, permanent)
+- Ownership flow (claim, double-claim rejection, owner-only access)
+- List & pagination (owned, pending, page navigation)
+- Delete (owned, pending, wrong-user rejection)
+- Custom name updates
+- Idempotent creation
+- Input validation (invalid base64, bad UID format, nonexistent messages)
+- Multiple reads of same secret
+- Unicode content (Cyrillic, emoji, CJK)
+- Full sender → recipient flow
+
+## Deployment Options
+
+### 1. Docker Compose + Cloudflare Tunnel (Recommended)
+
+See [Quick Start](#quick-start) above. Requires a Cloudflare Tunnel token.
 
 ### 2. Cloudflare Workers (Serverless)
-
-For global edge deployment with automatic scaling:
 
 ```bash
 cd cloudflare-workers/
@@ -161,29 +155,9 @@ npm run build
 npm run deploy:production
 ```
 
-**Benefits:**
-- Global edge network deployment
-- Automatic scaling and caching
-- D1 database for reliable data storage
-- Custom domain support
-- Zero server maintenance
+See [`cloudflare-workers/README.md`](cloudflare-workers/README.md) for details.
 
-**Production URL**: https://inigma.idone.su
-
-See [`cloudflare-workers/README.md`](cloudflare-workers/README.md) for detailed instructions.
-
-### 3. Single Container (Development)
-
-For development or simple deployments:
-
-```bash
-docker build -t inigma .
-docker run -p 8000:8000 -v $(pwd)/keys:/app/keys inigma
-```
-
-### 4. Kubernetes (Advanced)
-
-Using Helm charts for Kubernetes deployment:
+### 3. Kubernetes
 
 ```bash
 helm install inigma ./helm/
@@ -194,110 +168,75 @@ helm upgrade inigma ./helm/
 
 ```
 inigma/
-├── main.py                 # FastAPI application
-├── requirements.txt        # Python dependencies
-├── Dockerfile             # Application container
-├── Dockerfile.nginx       # Nginx container
-├── docker-compose.yaml    # Production deployment
-├── nginx.conf             # Nginx configuration
-├── .env.example           # Environment variables template
-├── keys/                  # Message storage directory
-├── static/                # Static assets
-├── templates-modular/     # Modular HTML templates
-│   ├── pages/            # Main page templates
-│   ├── components/       # Reusable components
-│   ├── scripts/          # JavaScript modules
-│   └── styles/           # CSS modules
-├── cloudflare-workers/   # Alternative Cloudflare Workers deployment
-└── helm/                 # Kubernetes deployment manifests
+├── main.py                     # FastAPI application
+├── database.py                 # SQLite operations + TTL cleanup
+├── requirements.txt            # Python dependencies
+├── Dockerfile                  # Multi-stage distroless build
+├── Dockerfile.nginx            # Nginx reverse proxy
+├── docker-compose.yaml         # Production: app + nginx + cloudflared
+├── nginx.conf                  # Rate limiting, security headers, proxy
+├── .env.example                # Environment template
+├── templates-modular/          # Shared frontend templates
+│   ├── pages/                  # Main HTML pages
+│   ├── components/             # Reusable UI components
+│   ├── scripts/                # JavaScript modules
+│   │   ├── crypto-functions.js # RSA + AES + PBKDF2 crypto
+│   │   ├── main-app.js         # Alpine.js app (main page)
+│   │   ├── view-app.js         # Alpine.js app (view page)
+│   │   ├── security-utils.js   # XSS prevention, rate limiting
+│   │   └── security-hardening.js
+│   └── styles/                 # CSS (Tailwind compiled at build)
+├── tests/                      # Integration test suite
+│   ├── conftest.py             # Docker fixtures (session-scoped)
+│   ├── crypto_client.py        # Python AES-256-GCM + PBKDF2 client
+│   ├── test_integration.py     # 30 API tests
+│   ├── docker-compose.test.yaml
+│   └── requirements.txt
+├── cloudflare-workers/         # Serverless Workers deployment
+│   ├── src/                    # Worker source code
+│   ├── build.js                # Custom bundler
+│   ├── schema.sql              # D1 schema
+│   └── migrations/             # D1 migrations
+└── helm/                       # Kubernetes Helm charts
 ```
-
-## Security Considerations
-
-### Encryption
-- **Algorithm**: AES-256-GCM with PBKDF2 key derivation
-- **Client-Side Only**: All encryption/decryption in browser
-- **Key Management**: Keys never transmitted to server
-- **Salt & IV**: Unique per message for cryptographic security
-
-### HTTPS Requirements
-- **Web Crypto API**: Requires secure context (HTTPS or localhost)
-- **Self-Signed Certificates**: Nginx automatically generates certificates
-- **Browser Security**: Modern browsers required for crypto operations
-
-### Input Validation
-- Server-side validation for all inputs
-- Client-side sanitization to prevent XSS
-- Message ID format validation
-- TTL range validation (0-365 days)
-- Custom name length limits
-
-### Content Security Policy
-- Strict CSP headers prevent code injection
-- Allowlist for required external resources
-- Inline script restrictions with nonces
-
-## Browser Support
-
-**Minimum Requirements:**
-- Chrome 60+ / Chromium-based browsers
-- Firefox 78+
-- Safari 14+
-- Edge 79+
-
-**Required APIs:**
-- Web Crypto API
-- Fetch API
-- Local Storage
-- ES6+ JavaScript features
 
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `DOMAIN` | `localhost:8443` | Base domain for generated message links |
+|---|---|---|
 | `PORT` | `8000` | Application server port |
-| `CORS_ORIGINS` | `https://localhost:8443` | Allowed CORS origins (comma-separated) |
+| `DOMAIN` | — | Domain for generated links (e.g. `inigma.example.com`) |
+| `CORS_ORIGINS` | — | Allowed CORS origins (e.g. `https://inigma.example.com`) |
+| `CF_DOMAIN` | — | Cloudflare Tunnel domain |
+| `CF_TUNNEL_TOKEN` | — | Cloudflare Tunnel authentication token |
 
 ## Troubleshooting
 
-### Common Issues
-
-**SSL Certificate Warnings**
-- Expected with self-signed certificates
-- Add security exception in browser
-- For production, replace with proper SSL certificates
-
 **Web Crypto API Not Available**
-- Ensure HTTPS or localhost access
-- Check browser compatibility
-- Verify secure context requirements
+- Requires HTTPS or localhost. Cloudflare Tunnel provides HTTPS automatically.
 
-**Message Storage Issues**
-- Ensure `keys/` directory has write permissions
-- Check Docker volume mounts
-- Verify disk space availability
+**Database Issues**
+- SQLite file stored in Docker volume `app-data` mounted at `/app/data`
+- Check volume exists: `docker volume ls | grep app-data`
+
+**Container won't start**
+- Distroless has no shell — you cannot `docker exec -it ... sh`
+- Debug with: `docker logs <container>`
 
 ### Logs
 
 ```bash
-# Docker Compose logs
-docker-compose logs -f
-
-# Application logs only
-docker-compose logs -f inigma
-
-# Nginx logs only
-docker-compose logs -f nginx
+docker-compose logs -f         # All services
+docker-compose logs -f app     # FastAPI only
+docker-compose logs -f nginx   # Nginx only
 ```
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+3. Run tests: `pytest tests/ -v`
+4. Submit a pull request
 
 ## License
 
