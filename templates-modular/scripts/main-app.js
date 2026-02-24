@@ -146,7 +146,11 @@ document.addEventListener('alpine:init', () => {
                 });
                 
                 const data = await response.json();
-                
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || 'Server error');
+                }
+
                 this.links.full = `${data.url}view?view=${data.view}#key=${encodeURIComponent(secretSymmetricKey)}`;
                 this.links.noKey = `${data.url}view?view=${data.view}`;
                 this.links.keyOnly = secretSymmetricKey;

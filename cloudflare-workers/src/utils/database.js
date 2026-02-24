@@ -75,9 +75,9 @@ export async function updateMessageOwner(env, messageId, uid, encryptedMessage, 
     ).bind(messageId);
 
     const [updateResult, checkResult] = await env.INIGMA_DB.batch([updateStmt, checkStmt]);
-    console.log(`Update message owner result: success=${updateResult.success}, changes=${updateResult.changes}`);
+    console.log(`Update message owner result: success=${updateResult.success}, changes=${updateResult.meta.changes}`);
 
-    if (updateResult.changes > 0 || (checkResult.results.length > 0 && checkResult.results[0].uid === uid)) {
+    if (updateResult.meta.changes > 0 || (checkResult.results.length > 0 && checkResult.results[0].uid === uid)) {
       return { ok: true };
     }
 
@@ -109,7 +109,7 @@ export async function updateCustomName(env, messageId, uid, customName) {
 
     const [updateResult, checkResult] = await env.INIGMA_DB.batch([updateStmt, checkStmt]);
 
-    if (updateResult.changes > 0 || (checkResult.results.length > 0 && checkResult.results[0].custom_name === customName)) {
+    if (updateResult.meta.changes > 0 || (checkResult.results.length > 0 && checkResult.results[0].custom_name === customName)) {
       return { ok: true };
     }
 
@@ -125,18 +125,12 @@ export async function updateCustomName(env, messageId, uid, customName) {
  */
 export async function deleteMessage(env, messageId, uid) {
   try {
-    const deleteStmt = env.INIGMA_DB.prepare(`
+    const deleteResult = await env.INIGMA_DB.prepare(`
       DELETE FROM messages
       WHERE id = ? AND (uid = ? OR (uid = '' AND creator_uid = ?))
-    `).bind(messageId, uid, uid);
+    `).bind(messageId, uid, uid).run();
 
-    const checkStmt = env.INIGMA_DB.prepare(
-      'SELECT id FROM messages WHERE id = ?'
-    ).bind(messageId);
-
-    const [deleteResult, checkResult] = await env.INIGMA_DB.batch([deleteStmt, checkStmt]);
-
-    if (deleteResult.changes > 0) {
+    if (deleteResult.meta.changes > 0) {
       return { ok: true };
     }
 
@@ -269,7 +263,7 @@ export async function cleanupOldMessages(env) {
     `);
     
     const result = await stmt.bind(currentTime, PERMANENT_TTL, cutoffTime).run();
-    const deletedCount = result.changes || 0;
+    const deletedCount = result.meta.changes || 0;
     
     console.log(`Cleanup completed. Deleted ${deletedCount} expired messages.`);
     return deletedCount;
