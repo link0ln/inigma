@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inigma.fullname" . }}-config
+  labels:
+    {{- include "inigma.labels" . | nindent 4 }}
+data:
+  domain: {{ .Values.domain | quote }}
+  corsOrigins: {{ .Values.corsOrigins | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inigma.fullname" . }}-nginx-conf
+  labels:
+    {{- include "inigma.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+{{ .Files.Get "nginx.conf" | indent 4 }}

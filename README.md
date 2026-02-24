@@ -159,12 +159,33 @@ npm run deploy:production
 
 See [`cloudflare-workers/README.md`](cloudflare-workers/README.md) for details.
 
-### 3. Kubernetes
+### 3. Kubernetes (Helm)
+
+StatefulSet with two containers (distroless app + nginx-unprivileged sidecar) and a PVC for SQLite. Single replica — SQLite doesn't support concurrent writers.
 
 ```bash
-helm install inigma ./helm/
-helm upgrade inigma ./helm/
+helm install inigma ./helm/ \
+  --set app.image.repository=ghcr.io/org/inigma \
+  --set app.image.tag=latest \
+  --set domain=inigma.example.com \
+  --set corsOrigins=https://inigma.example.com
+
+helm upgrade inigma ./helm/ --set app.image.tag=v1.1.0
 ```
+
+Key Helm values:
+
+| Value | Default | Description |
+|---|---|---|
+| `app.image.repository` | `ghcr.io/org/inigma` | App container image |
+| `app.image.tag` | Chart appVersion | App image tag |
+| `nginx.image.tag` | `1.28.2-alpine` | nginx-unprivileged tag |
+| `domain` | `example.com` | Domain for generated links |
+| `corsOrigins` | `https://example.com` | Allowed CORS origins |
+| `persistence.size` | `1Gi` | PVC size for SQLite |
+| `ingress.enabled` | `false` | Enable Ingress resource |
+
+Security: `runAsNonRoot`, `readOnlyRootFilesystem`, `cap_drop: ALL`, `seccompProfile: RuntimeDefault`, `automountServiceAccountToken: false`, NetworkPolicy (ingress 8080 only, egress DNS only).
 
 ## File Structure
 
@@ -199,7 +220,18 @@ inigma/
 │   ├── build.js                # Custom bundler
 │   ├── schema.sql              # D1 schema
 │   └── migrations/             # D1 migrations
-└── helm/                       # Kubernetes Helm charts
+└── helm/                       # Kubernetes Helm chart
+    ├── Chart.yaml
+    ├── values.yaml
+    ├── nginx.conf              # Sidecar nginx config (upstream 127.0.0.1:8000)
+    └── templates/
+        ├── statefulset.yaml    # App + nginx sidecar, PVC, security hardening
+        ├── configmap.yaml      # App env + nginx.conf
+        ├── networkpolicy.yaml  # Ingress 8080, egress DNS only
+        ├── service.yaml
+        ├── ingress.yaml
+        ├── serviceaccount.yaml
+        └── secret.yaml
 ```
 
 ## Environment Variables
