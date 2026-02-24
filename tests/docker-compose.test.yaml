@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8000
+      - DOMAIN=localhost
+      - CORS_ORIGINS=http://localhost:8000
+    ports:
+      - "8000:8000"
+    read_only: true
+    volumes:
+      - app-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  app-data:

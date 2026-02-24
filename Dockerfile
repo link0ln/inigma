@@ -7,27 +7,32 @@ COPY templates-modular/ /build/templates-modular/
 RUN npm install --ignore-scripts tailwindcss@3.4.17
 RUN npx tailwindcss -i tailwind-input.css -o /build/templates-modular/styles/tailwind-compiled.css --minify
 
-# Stage 2: Python application
-FROM python:3.11.14-slim
-
-# Set working directory
-WORKDIR /app
-
-# Install dependencies
+# Stage 2: Build Python dependencies and prepare app layout
+FROM python:3.11.14-slim AS python-builder
+WORKDIR /build
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --target=/build/site-packages -r requirements.txt
+# Pre-create the data directory for SQLite (nonroot uid=65534 needs write access)
+RUN mkdir -p /build/app/data && chown -R 65534:65534 /build/app/data
+
+# Stage 3: Distroless runtime — no shell, no package manager, no coreutils
+FROM gcr.io/distroless/python3-debian12:nonroot
+
+# Copy Python dependencies
+COPY --chown=nonroot:nonroot --from=python-builder /build/site-packages /app/site-packages
 
 # Copy application files
-COPY main.py .
-COPY database.py .
-COPY --from=css-builder /build/templates-modular/ ./templates-modular/
+COPY --chown=nonroot:nonroot main.py /app/
+COPY --chown=nonroot:nonroot database.py /app/
+COPY --chown=nonroot:nonroot --from=css-builder /build/templates-modular/ /app/templates-modular/
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# Copy pre-created writable data directory for SQLite
+COPY --chown=nonroot:nonroot --from=python-builder /build/app/data/ /app/data/
 
-# Expose port
+WORKDIR /app
+ENV PYTHONPATH=/app/site-packages
+ENV PYTHONDONTWRITEBYTECODE=1
+
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "main.py"]
+ENTRYPOINT ["python3", "main.py"]

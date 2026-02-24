@@ -25,7 +25,7 @@
             <div x-show="error && !loading" class="glass-morphism rounded-2xl p-8 fade-in">
                 <div class="text-center mb-6">
                     <i class="fas fa-exclamation-triangle text-5xl text-yellow-400 mb-4"></i>
-                    <h2 class="text-2xl font-bold mb-2" x-text="SecurityUtils.safeText(errorMessage)"></h2>
+                    <h2 class="text-2xl font-bold mb-2" x-text="safeText(errorMessage)"></h2>
                     <p class="opacity-80" x-show="errorMessage.includes('expired')">This message has expired and is no longer available.</p>
                     <p class="opacity-80" x-show="errorMessage.includes('No such')">The requested message could not be found.</p>
                 </div>
@@ -91,7 +91,7 @@
                     </div>
                     
                     <div class="bg-white/10 rounded-lg p-6">
-                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="SecurityUtils.safeText(decryptedMessage)"></pre>
+                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="safeText(decryptedMessage)"></pre>
                     </div>
                     
                     <div class="mt-6 flex justify-between items-center">

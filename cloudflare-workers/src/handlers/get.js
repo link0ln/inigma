@@ -53,16 +53,6 @@ export async function handleGet(request, env) {
       });
     }
 
-    // Serve static files (fallback crypto)
-    if (path === '/static/fallback-crypto.js') {
-      return new Response(fallbackCryptoJS, {
-        headers: {
-          'Content-Type': 'application/javascript',
-          ...getCorsHeaders(request),
-        },
-      });
-    }
-
     return new Response('Not Found', {
       status: 404,
       headers: getCorsHeaders(request),

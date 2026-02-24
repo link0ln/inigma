@@ -190,8 +190,9 @@ document.addEventListener('alpine:init', () => {
             setTimeout(() => this.showToast = false, 3000);
         },
 
-        toastText() {
-            return SecurityUtils.safeText(this.toastMessage || 'Copied to clipboard!');
+        // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
+        safeText(text) {
+            return SecurityUtils.safeText(text);
         },
     }));
 });

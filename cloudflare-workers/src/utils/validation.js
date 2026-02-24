@@ -136,25 +136,6 @@ export function addSecurityHeaders(headers = {}) {
 }
 
 /**
- * Sanitize text input to prevent XSS (matching Python version exactly)
- */
-export function sanitizeText(text) {
-  if (typeof text !== 'string') {
-    return "";
-  }
-  
-  // HTML escape the text (basic implementation)
-  let sanitized = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-  return sanitized.slice(0, 1000); // Limit length to 1000 like Python
-}
-
-/**
  * Validate TTL value
  */
 export function isValidTtl(ttl) {

@@ -11,6 +11,11 @@ services:
       - inigma-net
     expose:
       - "8000"
+    read_only: true
+    volumes:
+      - app-data:/app/data
+    security_opt:
+      - no-new-privileges:true
 
   nginx:
     build:
@@ -35,6 +40,9 @@ services:
     networks:
       - inigma-net
     restart: unless-stopped
+
+volumes:
+  app-data:
 
 networks:
   inigma-net:

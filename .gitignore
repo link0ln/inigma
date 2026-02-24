@@ -3,3 +3,4 @@ data/*
 .env
 keys/
 templates-modular/styles/tailwind-compiled.css
+.venv-test/

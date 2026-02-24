@@ -17,21 +17,6 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-// Convert URL-safe base64 key back to regular format for crypto operations
-function decodeUrlSafeKey(urlSafeKey) {
-    // Restore base64 padding and special characters
-    let key = urlSafeKey
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-    
-    // Add padding if needed
-    while (key.length % 4) {
-        key += '=';
-    }
-    
-    return key;
-}
-
 // IndexedDB utilities for storing non-extractable keys
 class KeyStorage {
     constructor() {
@@ -339,6 +324,3 @@ async function decrypt(encryptedData, salt, iv, password) {
     );
 }
 
-function generatePassword(length) {
-    return generateSymmetricKey(length);
-}

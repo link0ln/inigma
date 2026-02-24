@@ -520,5 +520,14 @@ document.addEventListener('alpine:init', () => {
         handleCustomNameInput(value) {
             this.customName = SecurityUtils.sanitizeCustomName(value);
         },
+
+        // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
+        safeText(text) {
+            return SecurityUtils.safeText(text);
+        },
+
+        safeName(name) {
+            return SecurityUtils.sanitizeCustomName(name || 'Untitled Secret');
+        },
     }));
 });

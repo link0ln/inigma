@@ -89,7 +89,7 @@ function resolveIncludes(content) {
     return result;
 }
 
-function buildTemplate(templatePath, outputPath) {
+function buildTemplate(templatePath) {
     console.log(`Building ${templatePath}...`);
     let templateContent = fs.readFileSync(templatePath, 'utf8');
     return resolveIncludes(templateContent);
@@ -177,9 +177,6 @@ function convertToWorkerFormat(content, filePath) {
   return content;
 }
 
-// Read crypto functions file from modular templates
-const fallbackCryptoJS = fs.readFileSync(path.join(__dirname, '../templates-modular/scripts/crypto-functions.js'), 'utf8');
-
 // Bundle all modules
 const srcDir = path.join(__dirname, 'src');
 const bundledModules = bundleModules(srcDir);
@@ -209,7 +206,6 @@ const templatesContent = `
 // HTML Templates
 const indexHTML = \`${escapeForJS(indexHTML)}\`;
 const viewHTML = \`${escapeForJS(viewHTML)}\`;
-const fallbackCryptoJS = \`${escapeForJS(fallbackCryptoJS)}\`;
 
 // Version information
 const VERSION_INFO = ${JSON.stringify(versionInfo, null, 2)};
@@ -217,7 +213,6 @@ const VERSION_INFO = ${JSON.stringify(versionInfo, null, 2)};
 // Make templates globally available
 globalThis.indexHTML = indexHTML;
 globalThis.viewHTML = viewHTML;
-globalThis.fallbackCryptoJS = fallbackCryptoJS;
 globalThis.VERSION_INFO = VERSION_INFO;
 `;
 

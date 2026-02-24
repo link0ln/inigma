@@ -4,11 +4,9 @@ import json
 import logging
 import secrets
 import time
-import html
 import re
 import uuid
 from typing import Optional, Dict, Any
-from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -45,9 +43,6 @@ handler.setFormatter(JSONFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger(__name__)
 
-# Request ID context (per-request, set by middleware)
-_request_id_ctx: dict = {}
-
 # Template builder function
 def build_template_from_modular(template_name):
     """Build template from modular components"""
@@ -60,7 +55,6 @@ def build_template_from_modular(template_name):
         content = f.read()
     
     # Process {{> filename }} includes
-    import re
     def replace_include(match):
         filename = match.group(1).strip()
         
