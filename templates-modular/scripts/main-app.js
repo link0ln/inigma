@@ -525,6 +525,17 @@ document.addEventListener('alpine:init', () => {
             this.customName = SecurityUtils.sanitizeCustomName(value);
         },
 
+        handleTtlInput(value) {
+            const num = parseInt(value);
+            if (isNaN(num) || num < 0) {
+                this.ttl = 0;
+            } else if (num > 365) {
+                this.ttl = 365;
+            } else {
+                this.ttl = num;
+            }
+        },
+
         // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
         safeText(text) {
             return SecurityUtils.safeText(text);
