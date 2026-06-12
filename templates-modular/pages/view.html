@@ -5,6 +5,9 @@
 {{> security-utils.js }}
 </script>
 <body class="gradient-bg min-h-screen text-white">
+    <canvas id="crypto-bg-waves" aria-hidden="true"></canvas>
+    <div id="crypto-bg-grid" aria-hidden="true"></div>
+    <canvas id="crypto-bg" aria-hidden="true"></canvas>
     <div class="container mx-auto px-4 py-8" x-data="viewApp">
         <header class="text-center mb-12 fade-in">
             <h1 class="text-5xl font-bold mb-4">
@@ -22,10 +25,10 @@
             </div>
 
             <!-- Error State -->
-            <div x-show="error && !loading" class="glass-morphism rounded-2xl p-8 fade-in">
+            <div x-show="error && !loading" x-cloak class="glass-morphism rounded-2xl p-8 fade-in">
                 <div class="text-center mb-6">
                     <i class="fas fa-exclamation-triangle text-5xl text-yellow-400 mb-4"></i>
-                    <h2 class="text-2xl font-bold mb-2" x-text="safeText(errorMessage)"></h2>
+                    <h2 class="text-2xl font-bold mb-2" x-text="errorMessage"></h2>
                     <p class="opacity-80" x-show="errorMessage.includes('expired')">This message has expired and is no longer available.</p>
                     <p class="opacity-80" x-show="errorMessage.includes('No such')">The requested message could not be found.</p>
                 </div>
@@ -37,7 +40,7 @@
             </div>
 
             <!-- Password Input State -->
-            <div x-show="needPassword && !loading && !error" class="glass-morphism rounded-2xl p-8 fade-in">
+            <div x-show="needPassword && !loading && !error" x-cloak class="glass-morphism rounded-2xl p-8 fade-in">
                 <div class="text-center mb-8">
                     <i class="fas fa-key text-5xl text-yellow-300 mb-4"></i>
                     <h2 class="text-2xl font-bold mb-2">Password Required</h2>
@@ -76,7 +79,7 @@
             </div>
 
             <!-- Message Display -->
-            <div x-show="decryptedMessage && !loading && !error" class="fade-in">
+            <div x-show="decryptedMessage && !loading && !error" x-cloak class="fade-in">
                 <div class="glass-morphism rounded-2xl p-8 mb-6">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold">
@@ -91,7 +94,7 @@
                     </div>
                     
                     <div class="bg-white/10 rounded-lg p-6">
-                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="safeText(decryptedMessage)"></pre>
+                        <pre class="whitespace-pre-wrap font-mono text-sm" x-text="decryptedMessage"></pre>
                     </div>
                     
                     <div class="mt-6 flex justify-between items-center">
@@ -117,8 +120,9 @@
         </div>
 
         <!-- Toast Notification -->
-        <div 
-            x-show="showToast" 
+        <div
+            x-show="showToast"
+            x-cloak
             x-transition
             class="fixed bottom-8 right-8 bg-emerald-600/80 text-white px-6 py-3 rounded-lg shadow-lg"
         >
@@ -129,6 +133,7 @@
     <script nonce="__CSP_NONCE__">
         {{> crypto-functions.js }}
         {{> view-app.js }}
+        {{> crypto-bg.js }}
     </script>
     <!-- Version 2 cache busting -->
 </body>

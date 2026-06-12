@@ -101,12 +101,18 @@ document.addEventListener('alpine:init', () => {
                 
                 const decrypted = await decrypt(encrypted, salt, iv, password);
                 this.decryptedMessage = new TextDecoder().decode(decrypted);
-                
-                // If not owner and successful, update ownership
+
+                // If not owner and successful, update ownership. A claim
+                // failure (network, 409) must not hide the decrypted message
+                // behind the password prompt again.
                 if (!this.isOwner) {
-                    await this.updateOwnership(this.decryptedMessage);
+                    try {
+                        await this.updateOwnership(this.decryptedMessage);
+                    } catch (ownershipError) {
+                        console.error('Ownership claim failed, showing message anyway:', ownershipError);
+                    }
                 }
-                
+
                 this.loading = false;
                 this.needPassword = false;
                 this.decryptError = false;
@@ -179,8 +185,10 @@ document.addEventListener('alpine:init', () => {
         },
         
         showError(message) {
+            // x-text binds via textContent, so the raw string is safe here;
+            // HTML-encoding it would render entities like &lt; literally.
             this.error = true;
-            this.errorMessage = SecurityUtils.sanitizeText(message);
+            this.errorMessage = typeof message === 'string' ? message : 'Unknown error';
             this.loading = false;
         },
         
@@ -188,11 +196,6 @@ document.addEventListener('alpine:init', () => {
             await navigator.clipboard.writeText(this.decryptedMessage);
             this.showToast = true;
             setTimeout(() => this.showToast = false, 3000);
-        },
-
-        // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
-        safeText(text) {
-            return SecurityUtils.safeText(text);
         },
     }));
 });

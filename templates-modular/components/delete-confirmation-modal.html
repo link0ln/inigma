@@ -1,6 +1,7 @@
 <!-- Delete Confirmation Modal -->
-<div 
-    x-show="showDeleteModal" 
+<div
+    x-show="showDeleteModal"
+    x-cloak
     x-transition
     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     @click.self="cancelDelete()"

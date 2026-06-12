@@ -138,7 +138,7 @@ document.addEventListener('alpine:init', () => {
                         encrypted_message: arrayBufferToBase64(encrypted),
                         iv: arrayBufferToBase64(iv),
                         salt: arrayBufferToBase64(salt),
-                        ttl: parseInt(this.ttl) || 0,
+                        ttl: isNaN(parseInt(this.ttl)) ? 30 : parseInt(this.ttl),
                         custom_name: this.customName,
                         creator_uid: this.credentials.uid,
                         idempotency_key: idempotencyKey
@@ -527,7 +527,11 @@ document.addEventListener('alpine:init', () => {
 
         handleTtlInput(value) {
             const num = parseInt(value);
-            if (isNaN(num) || num < 0) {
+            if (isNaN(num)) {
+                // Keep the field empty while typing; submit falls back to the
+                // 30-day default. Permanent (0) must be typed explicitly.
+                this.ttl = '';
+            } else if (num < 0) {
                 this.ttl = 0;
             } else if (num > 365) {
                 this.ttl = 365;
@@ -536,11 +540,7 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // CSP-safe wrappers — Alpine CSP build cannot access globals in x-text/x-bind
-        safeText(text) {
-            return SecurityUtils.safeText(text);
-        },
-
+        // CSP-safe wrapper — Alpine CSP build cannot access globals in x-text/x-bind
         safeName(name) {
             return SecurityUtils.sanitizeCustomName(name || 'Untitled Secret');
         },

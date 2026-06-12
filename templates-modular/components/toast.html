@@ -1,8 +1,9 @@
 <!-- Toast Notification -->
-<div 
-    x-show="showToast" 
+<div
+    x-show="showToast"
+    x-cloak
     x-transition
     class="fixed bottom-8 right-8 bg-emerald-600/80 text-white px-6 py-3 rounded-lg shadow-lg"
 >
-    <i class="fas fa-check mr-2"></i><span x-text="safeText(toastMessage)"></span>
+    <i class="fas fa-check mr-2"></i><span x-text="toastMessage"></span>
 </div>
