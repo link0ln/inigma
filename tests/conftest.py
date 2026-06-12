@@ -18,7 +18,8 @@ def docker_backend():
 
     subprocess.run([*compose_cmd, "up", "-d", "--build", "app"], check=True)
 
-    base_url = "http://localhost:8000"
+    test_port = os.environ.get("TEST_PORT", "8000")
+    base_url = f"http://localhost:{test_port}"
 
     for _ in range(60):
         try:
