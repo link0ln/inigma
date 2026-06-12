@@ -20,11 +20,12 @@ persist = true
 [env.development]
 routes = [ { pattern = "inigma-dev.idone.su", custom_domain = true } ]
 
-# D1 database binding (same as production)
+# D1 database binding — separate database from production!
+# Dev must never write to (or cron-clean) the production DB.
 [[env.development.d1_databases]]
 binding = "INIGMA_DB"
-database_name = "inigma-database"
-database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
+database_name = "inigma-database-dev"
+database_id = "569d6981-056f-4e88-842d-f76b3ef65216"
 
 # KV namespace for rate limiting (development)
 # Optional: Configure via Dashboard with binding name INIGMA_KV
@@ -36,7 +37,6 @@ database_id = "f9c64d33-553f-4e98-a655-1e95750550af"
 # Environment variables for development
 [env.development.vars]
 DOMAIN = "inigma-dev.idone.su"
-CLEANUP_DAYS = "50"
 
 [env.development.triggers]
 crons = ["0 2 * * *"] # Daily at 2:00 AM
@@ -58,7 +58,6 @@ id = "32a3b5af57e14ad99d07ac3965957fee"
 # Переменные окружения
 [env.production.vars]
 DOMAIN = "inigma.idone.su"
-CLEANUP_DAYS = "50"
 
 [env.production.triggers]
 crons = ["0 2 * * *"] # Ежедневно в 2:00
