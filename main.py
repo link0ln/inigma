@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import contextvars
 import os
 import json
 import logging
@@ -37,9 +38,24 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
+# Request ID is tracked per async context so concurrent requests never
+# contaminate each other's log records.
+request_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "request_id", default=None
+)
+
+
+class RequestIdFilter(logging.Filter):
+    """Injects the current context's request_id into all log records"""
+    def filter(self, record):
+        record.request_id = request_id_var.get()
+        return True
+
+
 # Configure logging
 handler = logging.StreamHandler()
 handler.setFormatter(JSONFormatter())
+handler.addFilter(RequestIdFilter())
 logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger(__name__)
 
@@ -156,27 +172,14 @@ app.add_middleware(
 @app.middleware("http")
 async def request_middleware(request: Request, call_next):
     request_id = uuid.uuid4().hex[:16]
-    # Inject request_id into log records via a filter
-    log_filter = RequestIdFilter(request_id)
-    logging.getLogger().addFilter(log_filter)
+    token = request_id_var.set(request_id)
     try:
-        logger.info(f"Incoming request", extra={"request_id": request_id})
+        logger.info("Incoming request")
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return add_security_headers(response)
     finally:
-        logging.getLogger().removeFilter(log_filter)
-
-
-class RequestIdFilter(logging.Filter):
-    """Injects request_id into all log records"""
-    def __init__(self, request_id: str):
-        super().__init__()
-        self.request_id = request_id
-
-    def filter(self, record):
-        record.request_id = self.request_id
-        return True
+        request_id_var.reset(token)
 
 
 # Data models
@@ -445,8 +448,11 @@ def get_timestamp() -> int:
     """Get current timestamp"""
     return int(time.time())
 
-# Simple in-memory idempotency cache (key -> (response, expires_at))
-_idempotency_cache: Dict[str, tuple] = {}
+# Simple in-memory idempotency cache (key -> (response, expires_at)).
+# Bounded: expired entries are evicted first, then the oldest, so an attacker
+# flooding unique keys cannot grow memory without limit.
+IDEMPOTENCY_CACHE_MAX = 10000
+_idempotency_cache: Dict[str, tuple] = {}  # insertion-ordered (Python 3.7+)
 
 def check_idempotency(key: str) -> Optional[dict]:
     """Check idempotency cache, return cached response or None"""
@@ -459,12 +465,14 @@ def check_idempotency(key: str) -> Optional[dict]:
 
 def store_idempotency(key: str, response: dict, ttl: int = 3600):
     """Store response in idempotency cache"""
-    # Evict expired entries if cache grows too large
-    if len(_idempotency_cache) > 10000:
+    if len(_idempotency_cache) >= IDEMPOTENCY_CACHE_MAX:
         now = time.time()
         expired = [k for k, (_, exp) in _idempotency_cache.items() if now >= exp]
         for k in expired:
             del _idempotency_cache[k]
+        # Still full — drop oldest entries to enforce the hard cap
+        while len(_idempotency_cache) >= IDEMPOTENCY_CACHE_MAX:
+            del _idempotency_cache[next(iter(_idempotency_cache))]
     _idempotency_cache[key] = (response, time.time() + ttl)
 
 @app.get("/", response_class=HTMLResponse)
@@ -492,11 +500,16 @@ async def view_page():
 @app.post("/api/create")
 async def create_message(request: CreateMessageRequest):
     """Create a new encrypted message"""
-    # Idempotency check
-    if request.idempotency_key:
-        cached = check_idempotency(request.idempotency_key)
+    # Idempotency check — key is scoped to creator_uid so one client cannot
+    # poison another's cache
+    idempotency_cache_key = (
+        f"{request.creator_uid}:{request.idempotency_key}"
+        if request.idempotency_key else None
+    )
+    if idempotency_cache_key:
+        cached = check_idempotency(idempotency_cache_key)
         if cached:
-            logger.info(f"Idempotent request: returning cached response")
+            logger.info("Idempotent request: returning cached response")
             return cached
 
     logger.info("Creating new message")
@@ -541,8 +554,8 @@ async def create_message(request: CreateMessageRequest):
     }
 
     # Cache for idempotency
-    if request.idempotency_key:
-        store_idempotency(request.idempotency_key, response_data)
+    if idempotency_cache_key:
+        store_idempotency(idempotency_cache_key, response_data)
 
     return JSONResponse(response_data)
 

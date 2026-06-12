@@ -20,24 +20,6 @@ import { PERMANENT_TTL } from '../../constants/config.js';
 export async function handleCreateMessage(body, env, request) {
   const { encrypted_message, iv, salt, ttl = 30, creator_uid, custom_name, idempotency_key } = body;
 
-  // Idempotency check — return cached response for duplicate requests
-  if (idempotency_key && typeof idempotency_key === 'string' && idempotency_key.length <= 64 && env.INIGMA_KV) {
-    try {
-      const cached = await env.INIGMA_KV.get(`idem:${idempotency_key}`, { type: 'json' });
-      if (cached) {
-        console.log(`Idempotent request: returning cached response for key ${idempotency_key.substring(0, 8)}...`);
-        return new Response(JSON.stringify(cached), {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getCorsHeaders(request),
-          },
-        });
-      }
-    } catch (e) {
-      console.warn('Idempotency check failed, proceeding:', e.message);
-    }
-  }
-  
   // Validate required fields
   if (!encrypted_message || !iv || !salt || !creator_uid) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -110,6 +92,30 @@ export async function handleCreateMessage(body, env, request) {
     });
   }
 
+  // Idempotency check — return cached response for duplicate requests.
+  // The key is scoped to creator_uid so one client cannot poison another's cache.
+  const idempotencyKvKey =
+    typeof idempotency_key === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(idempotency_key)
+      ? `idem:${creator_uid}:${idempotency_key}`
+      : null;
+
+  if (idempotencyKvKey && env.INIGMA_KV) {
+    try {
+      const cached = await env.INIGMA_KV.get(idempotencyKvKey, { type: 'json' });
+      if (cached) {
+        console.log(`Idempotent request: returning cached response for key ${idempotency_key.substring(0, 8)}...`);
+        return new Response(JSON.stringify(cached), {
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request),
+          },
+        });
+      }
+    } catch (e) {
+      console.warn('Idempotency check failed, proceeding:', e.message);
+    }
+  }
+
   // Calculate TTL
   const currentTime = getTimestamp();
   const messageTtl = ttl === 0 ? PERMANENT_TTL : currentTime + (ttl * 24 * 60 * 60);
@@ -162,9 +168,9 @@ export async function handleCreateMessage(body, env, request) {
   };
 
   // Cache response for idempotency (1 hour TTL)
-  if (idempotency_key && typeof idempotency_key === 'string' && idempotency_key.length <= 64 && env.INIGMA_KV) {
+  if (idempotencyKvKey && env.INIGMA_KV) {
     try {
-      await env.INIGMA_KV.put(`idem:${idempotency_key}`, JSON.stringify(responseData), { expirationTtl: 3600 });
+      await env.INIGMA_KV.put(idempotencyKvKey, JSON.stringify(responseData), { expirationTtl: 3600 });
     } catch (e) {
       console.warn('Failed to cache idempotency response:', e.message);
     }

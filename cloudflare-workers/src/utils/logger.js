@@ -1,18 +1,15 @@
 /**
- * Structured JSON logger with request correlation ID
+ * Structured JSON logger with request correlation ID.
+ *
+ * Workers handle concurrent requests in one isolate, so the request ID must
+ * be carried by a per-request logger instance, never by module-level state.
  */
 
-let _requestId = null;
-
-export function setRequestId(id) {
-  _requestId = id;
-}
-
-function formatLog(level, message, context) {
+function formatLog(level, requestId, message, context) {
   const entry = {
     timestamp: new Date().toISOString(),
     level,
-    requestId: _requestId,
+    requestId,
     message,
   };
 
@@ -23,20 +20,25 @@ function formatLog(level, message, context) {
   return JSON.stringify(entry);
 }
 
-export const logger = {
-  info(message, context = {}) {
-    console.log(formatLog('info', message, context));
-  },
-  warn(message, context = {}) {
-    console.warn(formatLog('warn', message, context));
-  },
-  error(message, context = {}) {
-    console.error(formatLog('error', message, context));
-  },
-  debug(message, context = {}) {
-    console.log(formatLog('debug', message, context));
-  },
-};
+/**
+ * Create a logger bound to a single request's ID
+ */
+export function createLogger(requestId) {
+  return {
+    info(message, context = {}) {
+      console.log(formatLog('info', requestId, message, context));
+    },
+    warn(message, context = {}) {
+      console.warn(formatLog('warn', requestId, message, context));
+    },
+    error(message, context = {}) {
+      console.error(formatLog('error', requestId, message, context));
+    },
+    debug(message, context = {}) {
+      console.log(formatLog('debug', requestId, message, context));
+    },
+  };
+}
 
 /**
  * Generate a short unique request ID

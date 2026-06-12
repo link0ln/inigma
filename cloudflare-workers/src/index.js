@@ -9,7 +9,7 @@ import { handlePost } from './handlers/post.js';
 import { cleanupOldMessages } from './utils/database.js';
 import { getCorsHeaders } from './utils/cors.js';
 import { checkRateLimit, addRateLimitHeaders, createRateLimitResponse } from './utils/rateLimit.js';
-import { logger, setRequestId, generateRequestId } from './utils/logger.js';
+import { createLogger, generateRequestId } from './utils/logger.js';
 
 /**
  * Handle scheduled events (cleanup) - like Python cron job
@@ -24,8 +24,7 @@ async function handleScheduled(event, env, ctx) {
  */
 export default {
   async fetch(request, env, ctx) {
-    const requestId = generateRequestId();
-    setRequestId(requestId);
+    const logger = createLogger(generateRequestId());
 
     try {
       const method = request.method;
