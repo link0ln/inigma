@@ -2,7 +2,7 @@
  * D1 Database utility functions for Inigma
  */
 
-import { DEFAULT_CLEANUP_DAYS, PERMANENT_TTL } from '../constants/config.js';
+import { PERMANENT_TTL } from '../constants/config.js';
 import { getTimestamp, calculateTimeRemaining } from './validation.js';
 
 /**
@@ -248,21 +248,20 @@ export async function listPendingSecrets(env, creatorUid, page = 1, perPage = 10
 }
 
 /**
- * Cleanup old messages
+ * Cleanup expired messages.
+ * Permanent messages (ttl = PERMANENT_TTL) and messages whose TTL has not
+ * passed are never deleted, regardless of age.
  */
 export async function cleanupOldMessages(env) {
   try {
-    const cleanupDays = parseInt(env.CLEANUP_DAYS || DEFAULT_CLEANUP_DAYS);
     const currentTime = getTimestamp();
-    const cutoffTime = currentTime - (cleanupDays * 24 * 60 * 60);
-    
-    // Delete expired messages and old messages
+
     const stmt = env.INIGMA_DB.prepare(`
-      DELETE FROM messages 
-      WHERE (ttl < ? AND ttl != ?) OR created_at < ?
+      DELETE FROM messages
+      WHERE ttl < ? AND ttl != ?
     `);
-    
-    const result = await stmt.bind(currentTime, PERMANENT_TTL, cutoffTime).run();
+
+    const result = await stmt.bind(currentTime, PERMANENT_TTL).run();
     const deletedCount = result.meta.changes || 0;
     
     console.log(`Cleanup completed. Deleted ${deletedCount} expired messages.`);

@@ -360,18 +360,21 @@ class DatabaseManager:
             logger.error(f"Error listing pending secrets: {e}")
             return {"secrets": [], "page": page, "per_page": per_page, "total": 0, "has_more": False}
     
-    def cleanup_expired_messages(self, cleanup_days: int = 50) -> int:
-        """Remove expired messages and messages older than cleanup_days"""
+    def cleanup_expired_messages(self) -> int:
+        """Remove expired messages.
+
+        Permanent messages (ttl = PERMANENT_TTL) and messages whose TTL has
+        not passed are never deleted, regardless of age.
+        """
         try:
             current_time = int(time.time())
-            cutoff_time = current_time - (cleanup_days * 24 * 60 * 60)
-            
+
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     DELETE FROM messages
-                    WHERE (ttl < ? AND ttl != ?) OR created_at < ?
-                """, (current_time, PERMANENT_TTL, cutoff_time))
+                    WHERE ttl < ? AND ttl != ?
+                """, (current_time, PERMANENT_TTL))
                 
                 deleted_count = cursor.rowcount
                 conn.commit()

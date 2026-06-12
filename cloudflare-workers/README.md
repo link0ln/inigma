@@ -115,10 +115,9 @@ routes = [ { pattern = "inigma-dev.idone.su", custom_domain = true } ]
 
 [env.development.vars]
 DOMAIN = "inigma-dev.idone.su"
-CLEANUP_DAYS = "50"
 
 [env.development.triggers]
-crons = ["0 2 * * *"]  # Daily cleanup at 2 AM UTC
+crons = ["0 2 * * *"]  # Daily cleanup of expired messages at 2 AM UTC
 ```
 
 #### Production Environment
@@ -128,10 +127,9 @@ routes = [ { pattern = "inigma.idone.su", custom_domain = true } ]
 
 [env.production.vars]
 DOMAIN = "inigma.idone.su"
-CLEANUP_DAYS = "50"
 
 [env.production.triggers]
-crons = ["0 2 * * *"]  # Daily cleanup at 2 AM UTC
+crons = ["0 2 * * *"]  # Daily cleanup of expired messages at 2 AM UTC
 ```
 
 ### Custom Domain Setup
