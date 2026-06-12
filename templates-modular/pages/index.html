@@ -5,6 +5,9 @@
 {{> security-utils.js }}
 </script>
 <body class="gradient-bg min-h-screen text-white">
+    <canvas id="crypto-bg-waves" aria-hidden="true"></canvas>
+    <div id="crypto-bg-grid" aria-hidden="true"></div>
+    <canvas id="crypto-bg" aria-hidden="true"></canvas>
     <div class="container mx-auto px-4 py-8" x-data="app">
         {{> header }}
 
@@ -27,6 +30,7 @@
     <script nonce="__CSP_NONCE__">
         {{> crypto-functions.js }}
         {{> main-app.js }}
+        {{> crypto-bg.js }}
     </script>
 </body>
 </html>

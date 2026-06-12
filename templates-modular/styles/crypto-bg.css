@@ -1,0 +1,53 @@
+/* Crypto-themed animated background: wave field + glyph rain + drifting grid */
+
+.gradient-bg {
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(18, 10, 45, 0.45) 0%, transparent 55%),
+        radial-gradient(ellipse at 70% 80%, rgba(5, 20, 40, 0.45) 0%, transparent 55%),
+        #01000a;
+    position: relative;
+    isolation: isolate;
+    overflow-x: hidden;
+}
+
+#crypto-bg-waves,
+#crypto-bg,
+#crypto-bg-grid {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+#crypto-bg-waves {
+    z-index: -2;
+    width: 100vw;
+    height: 100vh;
+}
+
+#crypto-bg {
+    z-index: -1;
+    width: 100vw;
+    height: 100vh;
+    opacity: 0.32;
+}
+
+#crypto-bg-grid {
+    z-index: -1;
+    background-image:
+        linear-gradient(rgba(120, 140, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120, 140, 255, 0.035) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(900px circle at var(--mx, 50%) var(--my, 50%),
+        rgba(0, 0, 0, 0.6) 0%,
+        rgba(0, 0, 0, 0.2) 40%,
+        transparent 75%);
+    -webkit-mask-image: radial-gradient(900px circle at var(--mx, 50%) var(--my, 50%),
+        rgba(0, 0, 0, 0.6) 0%,
+        rgba(0, 0, 0, 0.2) 40%,
+        transparent 75%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #crypto-bg,
+    #crypto-bg-waves { display: none; }
+}
