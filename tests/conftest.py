@@ -14,7 +14,7 @@ def docker_backend():
     tests_dir = os.path.dirname(os.path.abspath(__file__))
     compose_file = os.path.join(tests_dir, "docker-compose.test.yaml")
 
-    compose_cmd = ["docker-compose", "-f", compose_file, "-p", "inigma-test"]
+    compose_cmd = ["docker", "compose", "-f", compose_file, "-p", "inigma-test"]
 
     subprocess.run([*compose_cmd, "up", "-d", "--build", "app"], check=True)
 

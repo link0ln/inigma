@@ -126,13 +126,14 @@ async function generateAsymmetricKeyPair() {
     );
 }
 
-// Generate symmetric key for secrets encryption
+// Generate symmetric key for secrets encryption.
+// 64-char URL-safe alphabet so that 256 % 64 === 0 — no modulo bias.
 function generateSymmetricKey(length = 32) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
     let result = '';
     const array = new Uint8Array(length);
     crypto.getRandomValues(array);
-    
+
     for (let i = 0; i < length; i++) {
         result += chars.charAt(array[i] % chars.length);
     }

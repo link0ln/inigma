@@ -62,8 +62,12 @@ logger = logging.getLogger(__name__)
 # Template builder function
 def build_template_from_modular(template_name):
     """Build template from modular components"""
+    # Defense-in-depth against path traversal: only allow plain *.html names.
+    if not re.match(r'^[a-zA-Z0-9_-]+\.html$', template_name):
+        raise ValueError(f"Invalid template name: {template_name}")
+
     template_path = f"templates-modular/pages/{template_name}"
-    
+
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template not found: {template_path}")
     
@@ -440,7 +444,7 @@ def add_security_headers(response: Response) -> Response:
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
 
     return response
 
