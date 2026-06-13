@@ -58,7 +58,7 @@ class DatabaseManager:
     
     def __init__(self, db_path: str = "data/inigma.db"):
         self.db_path = Path(db_path)
-        # Создаем папку data если её нет
+        # Create the data directory if it does not exist
         self.db_path.parent.mkdir(exist_ok=True)
         self.init_database()
     

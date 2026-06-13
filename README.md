@@ -126,7 +126,11 @@ pytest tests/ -v
 pytest tests/test_integration.py -v -k "test_create"
 ```
 
-Tests use `tests/docker-compose.test.yaml`, which publishes port 8000 to the host (unlike production compose which uses only internal networking).
+Tests use `tests/docker-compose.test.yaml`, which publishes the backend to the host (unlike production compose, which uses only internal networking). The host port defaults to 8000 and is overridable via `TEST_PORT` if 8000 is already taken:
+
+```bash
+TEST_PORT=18432 pytest tests/ -v
+```
 
 ### Test Coverage
 
@@ -207,8 +211,9 @@ inigma/
 │   │   ├── main-app.js         # Alpine.js app (main page)
 │   │   ├── view-app.js         # Alpine.js app (view page)
 │   │   ├── security-utils.js   # XSS prevention, rate limiting
-│   │   └── security-hardening.js
-│   └── styles/                 # CSS (Tailwind compiled at build)
+│   │   ├── security-hardening.js
+│   │   └── crypto-bg.js        # Animated background (WebGL + canvas)
+│   └── styles/                 # CSS (Tailwind compiled at build, crypto-bg.css)
 ├── tests/                      # Integration test suite
 │   ├── conftest.py             # Docker fixtures (session-scoped)
 │   ├── crypto_client.py        # Python AES-256-GCM + PBKDF2 client

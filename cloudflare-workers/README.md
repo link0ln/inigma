@@ -35,10 +35,23 @@ npm install -g wrangler
 wrangler login
 ```
 
-### 3. Create D1 Database
+### 3. Create D1 Databases
+
+Production and development use **separate** D1 databases so that dev deploys
+and the dev cleanup cron never touch production data:
 
 ```bash
-wrangler d1 create inigma-database
+wrangler d1 create inigma-database       # production
+wrangler d1 create inigma-database-dev   # development
+```
+
+Put the returned `database_id` values into `wrangler.toml` under
+`[[env.production.d1_databases]]` and `[[env.development.d1_databases]]`
+respectively, then apply the schema to each:
+
+```bash
+wrangler d1 execute inigma-database     --file=schema.sql --remote
+wrangler d1 execute inigma-database-dev --file=schema.sql --remote
 ```
 
 ### 4. Install Dependencies
@@ -71,13 +84,18 @@ npx wrangler deploy --env production
 
 ### Development
 - **URL**: https://inigma-dev.idone.su
-- **Database**: Shared with production (same D1 instance)
+- **Database**: `inigma-database-dev` — separate D1 instance, isolated from production
 - **Purpose**: Testing new features before production release
 
 ### Production
 - **URL**: https://inigma.idone.su
-- **Database**: Main D1 database
+- **Database**: `inigma-database` — main D1 instance
 - **Purpose**: Live production instance
+
+> **Note:** Dev and production previously shared one D1 database, which meant
+> the dev cleanup cron operated on production data. They are now fully separate.
+> The CI workflow (`.github/workflows/cloudflare-deploy.yml`) deploys **production
+> only** — dev is deployed manually with `npm run deploy:development`.
 
 ## Development
 
@@ -179,12 +197,15 @@ cloudflare-workers/
 │       ├── cors.js          # CORS utilities
 │       ├── crypto.js        # Cryptographic functions
 │       ├── database.js      # D1 database operations
+│       ├── logger.js        # Per-request structured JSON logger
+│       ├── rateLimit.js     # KV-based rate limiting (INIGMA_KV)
 │       └── validation.js    # Input validation
 ├── build/                   # Generated files (created during build)
+├── migrations/             # D1 schema migrations
+├── schema.sql              # D1 schema (full, for fresh databases)
 ├── wrangler.toml           # Cloudflare Workers configuration
 ├── package.json            # Project dependencies
-├── build.js                # Build script
-├── tsconfig.json           # TypeScript configuration
+├── build.js                # Build script (resolves templates, bundles src)
 └── README.md               # This file
 ```
 
@@ -193,15 +214,16 @@ cloudflare-workers/
 The Workers implementation provides the same API as the main application:
 
 - `GET /` - Serve the main application interface
-- `GET /view/{id}` - Serve the message view interface
+- `GET /view?view={id}` - Serve the message view interface
 - `POST /api/create` - Create new encrypted message
 - `POST /api/view` - View message (with access control)
 - `POST /api/update` - Claim message ownership
-- `POST /api/list-secrets` - List user's messages with pagination
+- `POST /api/list-secrets` - List user's owned messages with pagination
+- `POST /api/list-pending-secrets` - List the creator's pending (unclaimed) messages
 - `POST /api/update-custom-name` - Update message custom name
 - `POST /api/delete-secret` - Delete user's message
-- `POST /api/pending-secrets` - List pending (unowned) messages
 - `GET /health` - Health check endpoint
+- `GET /version` - Build/version info (git commit, branch, build date)
 
 ## Features
 

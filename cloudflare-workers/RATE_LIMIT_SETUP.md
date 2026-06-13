@@ -2,94 +2,111 @@
 
 ## Overview
 
-Rate limiting использует Cloudflare KV для хранения счётчиков запросов. Это обеспечивает:
-- Глобальное состояние между всеми edge locations
-- Автоматическую очистку старых записей (TTL)
-- Работу на free плане Cloudflare
+Rate limiting uses Cloudflare KV to store request counters. This provides:
+- Global state shared across all edge locations
+- Automatic expiry of old entries (TTL)
+- Operation on Cloudflare's free plan
 
-## 🛠️ Ручная настройка (Требуется)
+> **Binding name:** `INIGMA_KV`. The same namespace also backs the idempotency
+> cache for the `/api/create` endpoint.
 
-### Шаг 1: Создать KV Namespace
+## Current status
 
-Через Cloudflare Dashboard с токеном с повышенными привилегиями:
-
-1. Зайдите в Cloudflare Dashboard → Workers & Pages → KV
-2. Нажмите "Create namespace"
-3. Название: `inigma-RATE_LIMIT_KV-production`
-4. Скопируйте созданный **Namespace ID**
-
-Или через CLI (если есть токен с правами):
-```bash
-npx wrangler kv namespace create "RATE_LIMIT_KV" --env production
-# Вывод: ✨ Success! Created KV namespace ...
-# Скопируйте ID из вывода
-```
-
-### Шаг 2: Обновить wrangler.toml
-
-Откройте `cloudflare-workers/wrangler.toml` и замените `YOUR_PROD_KV_ID` на реальный ID:
+**Production is already configured** — the `INIGMA_KV` namespace is set in
+`wrangler.toml`:
 
 ```toml
 [[env.production.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "abc123456789..."  # ← Ваш настоящий ID
+binding = "INIGMA_KV"
+id = "32a3b5af57e14ad99d07ac3965957fee"
 ```
 
-### Шаг 3: Commit и Push
+No further action is needed for production. The sections below are only
+relevant when bringing up an environment from scratch or enabling KV for dev.
+
+## Creating a KV namespace from scratch
+
+### Step 1: Create the namespace
+
+Via CLI (requires a token with Workers KV permissions):
+
+```bash
+npx wrangler kv namespace create "INIGMA_KV" --env production
+# ✨ Success! Created KV namespace ...
+# Copy the id from the output
+```
+
+Or via Dashboard → Workers & Pages → KV → Create namespace.
+
+### Step 2: Update wrangler.toml
+
+```toml
+[[env.production.kv_namespaces]]
+binding = "INIGMA_KV"
+id = "<your-namespace-id>"
+```
+
+### Step 3: Commit and push
 
 ```bash
 git add cloudflare-workers/wrangler.toml
-git commit -m "chore: Configure KV namespace for rate limiting"
+git commit -m "chore: configure INIGMA_KV namespace"
 git push origin main
 ```
 
-GitHub Actions автоматически задеплоит с rate limiting!
+GitHub Actions deploys the change automatically (see `AUTOMATED_DEPLOYMENT.md`).
 
-## Development Environment (Опционально)
+## Development environment (optional)
 
-Для локальной разработки можно не настраивать KV - rate limiting автоматически отключится:
+KV is **not configured** for dev by default (the
+`[[env.development.kv_namespaces]]` block in `wrangler.toml` is commented out).
+In that case rate limiting simply disables itself with a log warning — and so
+does the idempotency cache:
 
 ```
 Rate limit KV not configured - skipping rate limit check
 ```
 
-Если хотите тестировать локально:
+To enable KV for dev:
+
 ```bash
-npx wrangler kv namespace create "RATE_LIMIT_KV" --env development
-# Обновите [env.development.kv_namespaces] в wrangler.toml
+npx wrangler kv namespace create "INIGMA_KV" --env development
+# uncomment [[env.development.kv_namespaces]] and fill in the id
 ```
 
-## Rate Limit Configuration
+## Rate limit configuration
 
-Настройки лимитов находятся в `src/utils/rateLimit.js`:
+Limits live in `src/utils/rateLimit.js`:
 
 ```javascript
 const RATE_LIMITS = {
-  '/api/create': {
-    requests: 10,      // 10 сообщений
-    window: 60,        // за 60 секунд
-  },
-  '/api/view': {
-    requests: 100,     // 100 просмотров
-    window: 60,        // за 60 секунд
-  },
-  // ... other endpoints
+  '/api/create': { requests: 10,  window: 60 },  // 10 messages / min
+  '/api/view':   { requests: 100, window: 60 },  // 100 views / min
+  // ... other endpoints, plus 'default': 200/min
 };
 ```
 
-## Testing Rate Limits
+> **Limitation:** KV is an eventually-consistent read-modify-write store with no
+> CAS, so concurrent or geographically distributed requests can briefly exceed
+> the limit, and on a KV error the limiter fails open (lets the request
+> through). It is a soft limiter against accidental bursts, not a hard
+> brute-force defense. For strict guarantees use a Durable Object.
+
+## Testing rate limits
 
 ```bash
-# Test locally (без KV - rate limiting будет skip)
+# Locally (no KV — rate limiting is skipped)
 npm run dev
 
-# Test на deployed worker
+# Against the deployed worker
 for i in {1..15}; do
-  curl https://inigma.idone.su/api/create -X POST -H "Content-Type: application/json" -d '{}'
+  curl https://inigma.idone.su/api/create -X POST \
+    -H "Content-Type: application/json" -d '{}'
 done
 ```
 
-После 10 запросов вы получите:
+After 10 requests:
+
 ```json
 {
   "error": "Rate limit exceeded",
@@ -98,9 +115,9 @@ done
 }
 ```
 
-## Response Headers
+## Response headers
 
-Все API responses включают rate limit headers:
+All API responses include rate limit headers:
 
 ```
 X-RateLimit-Limit: 10
@@ -110,32 +127,24 @@ X-RateLimit-Reset: 1699876543000
 
 ## Monitoring
 
-Мониторинг rate limiting в Cloudflare Dashboard:
+Cloudflare Dashboard:
 1. Workers & Pages → inigma → Metrics
 2. Errors → Rate limit exceeded warnings
-3. KV → RATE_LIMIT_KV → Keys (для debug)
+3. KV → INIGMA_KV → Keys (for debugging)
 
 ## Troubleshooting
 
-**Problem:** Rate limiting не работает
-```bash
-# Проверьте что KV namespace настроен в wrangler.toml
-cat cloudflare-workers/wrangler.toml | grep -A 2 "kv_namespaces"
+**Rate limiting is not working**
 
-# Проверьте deployment logs
+```bash
+# Check that the namespace is configured in wrangler.toml
+grep -A2 "kv_namespaces" cloudflare-workers/wrangler.toml
+
+# Deployment logs
 npx wrangler tail --env production
 ```
 
-**Problem:** Слишком жёсткие лимиты
-```javascript
-// Edit src/utils/rateLimit.js
-'/api/view': {
-  requests: 200,  // Увеличить лимит
-  window: 60,
-}
-```
+**Limits are too strict** — increase `requests`/`window` in `src/utils/rateLimit.js`.
 
-**Problem:** KV quota exceeded (free plan: 100k reads/day)
-- Увеличьте `window` (например, с 60s до 300s)
-- Уменьшите количество endpoints с rate limiting
-- Upgrade to paid plan (10M reads/month)
+**KV quota exceeded** (free plan: 100k reads/day) — increase `window`, reduce
+the number of rate-limited endpoints, or upgrade to a paid plan.

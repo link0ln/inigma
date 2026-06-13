@@ -3,80 +3,101 @@
 **Date:** 2025-11-10
 **Branch:** claude/code-security-analysis-011CUzekv4YCx8VLXssw81TB
 
+> ⚠️ **Historical snapshot.** This report captures the state as of 2025-11-10.
+> Several things have changed since then — when this file disagrees with
+> `README.md`, `cloudflare-workers/README.md`, or `RATE_LIMIT_SETUP.md`, trust
+> those, not this file:
+>
+> - The **KV namespace** is named `INIGMA_KV` (not `RATE_LIMIT_KV`) and is
+>   already configured in `wrangler.toml`. It backs both rate limiting and the
+>   idempotency cache.
+> - **Cleanup** no longer deletes messages by age (`created_at`). Only messages
+>   that have actually expired by TTL are removed (`ttl < now AND ttl != PERMANENT`);
+>   permanent and long-lived secrets are preserved. The `CLEANUP_DAYS` variable
+>   was removed.
+> - **Dev and production use SEPARATE D1 databases** (`inigma-database-dev` vs
+>   `inigma-database`). They previously shared one.
+> - **CSP is already nonce-based**, without `unsafe-inline`/`unsafe-eval` for
+>   scripts (Alpine.js CSP build). The "CSP Headers remain weak" section below
+>   is outdated.
+> - The **CI workflow** only applies migrations and deploys production; it does
+>   not create the KV namespace or edit `wrangler.toml`.
+
 ## Overview
 
-Проведен комплексный анализ и внедрены критические улучшения безопасности и производительности для Cloudflare Workers deployment.
+A comprehensive analysis was performed and critical security and performance
+improvements were implemented for the Cloudflare Workers deployment.
 
 ---
 
-## ✅ Внедренные Улучшения
+## ✅ Implemented Improvements
 
-### 1. 🔒 Rate Limiting для Cloudflare Workers
+### 1. 🔒 Rate Limiting for Cloudflare Workers
 
-**Статус:** ✅ Реализовано
-**Приоритет:** КРИТИЧНО
-**Файлы:**
-- `cloudflare-workers/src/utils/rateLimit.js` (новый)
-- `cloudflare-workers/src/index.js` (обновлен)
-- `cloudflare-workers/wrangler.toml` (обновлен)
-- `cloudflare-workers/RATE_LIMIT_SETUP.md` (инструкция)
+**Status:** ✅ Implemented
+**Priority:** CRITICAL
+**Files:**
+- `cloudflare-workers/src/utils/rateLimit.js` (new)
+- `cloudflare-workers/src/index.js` (updated)
+- `cloudflare-workers/wrangler.toml` (updated)
+- `cloudflare-workers/RATE_LIMIT_SETUP.md` (instructions)
 
-**Что сделано:**
-- Добавлен middleware для rate limiting на основе Cloudflare KV
-- Лимиты настроены индивидуально для каждого API endpoint:
-  - `/api/create`: 10 запросов / минута
-  - `/api/view`: 100 запросов / минута
-  - `/api/update`: 20 запросов / минута
-  - `/api/list-secrets`: 50 запросов / минута
-  - `/api/delete-secret`: 20 запросов / минута
-- Добавлены rate limit headers в responses:
+**What was done:**
+- Added rate-limiting middleware based on Cloudflare KV
+- Per-endpoint limits configured individually:
+  - `/api/create`: 10 requests / minute
+  - `/api/view`: 100 requests / minute
+  - `/api/update`: 20 requests / minute
+  - `/api/list-secrets`: 50 requests / minute
+  - `/api/delete-secret`: 20 requests / minute
+- Added rate-limit headers to responses:
   - `X-RateLimit-Limit`
   - `X-RateLimit-Remaining`
   - `X-RateLimit-Reset`
-- Graceful degradation при отсутствии KV (для локальной разработки)
+- Graceful degradation when KV is absent (for local development)
 
-**Настройка:**
+**Setup:**
 ```bash
-# 1. Создать KV namespaces
-npx wrangler kv:namespace create "RATE_LIMIT_KV" --env development
-npx wrangler kv:namespace create "RATE_LIMIT_KV" --env production
+# 1. Create KV namespaces
+npx wrangler kv namespace create "INIGMA_KV" --env development
+npx wrangler kv namespace create "INIGMA_KV" --env production
 
-# 2. Обновить wrangler.toml с полученными IDs
+# 2. Put the returned IDs into wrangler.toml
 # 3. Deploy
 npm run deploy:production
 ```
 
-**Детали:** См. `cloudflare-workers/RATE_LIMIT_SETUP.md`
+**Details:** see `cloudflare-workers/RATE_LIMIT_SETUP.md`
 
 ---
 
-### 2. 📏 Size Limits для Cloudflare Workers
+### 2. 📏 Size Limits for Cloudflare Workers
 
-**Статус:** ✅ Улучшено
-**Приоритет:** КРИТИЧНО
-**Файлы:**
-- `cloudflare-workers/src/utils/validation.js` (улучшено)
+**Status:** ✅ Improved
+**Priority:** CRITICAL
+**Files:**
+- `cloudflare-workers/src/utils/validation.js` (improved)
 
-**Что сделано:**
-- Улучшена валидация `isValidEncryptedData()`:
-  - Проверка типа данных
-  - Проверка на пустые данные
-  - Строгий лимит 2MB для encrypted messages
-  - Валидация base64 формата
-  - Детальное логирование ошибок
+**What was done:**
+- Improved `isValidEncryptedData()` validation:
+  - Type check
+  - Empty-data check
+  - Strict 2MB limit for encrypted messages
+  - Base64 format validation
+  - Detailed error logging
 
-- Улучшена валидация `isValidCustomName()`:
-  - Строгий лимит 100 символов
-  - Логирование превышения лимита
+- Improved `isValidCustomName()` validation:
+  - Strict 100-character limit
+  - Logging when the limit is exceeded
 
-**До:**
+**Before:**
 ```javascript
 export function isValidEncryptedData(data) {
   return typeof data === 'string' && data.length > 0 && data.length <= 2000000;
 }
 ```
 
-**После:**
+**After:**
 ```javascript
 export function isValidEncryptedData(data) {
   // Type check
@@ -93,90 +114,90 @@ export function isValidEncryptedData(data) {
 
 ---
 
-### 3. 🌐 CORS Validation для Cloudflare Workers
+### 3. 🌐 CORS Validation for Cloudflare Workers
 
-**Статус:** ✅ Реализовано
-**Приоритет:** ВЫСОКИЙ
-**Файлы:**
-- `cloudflare-workers/src/utils/cors.js` (улучшено)
+**Status:** ✅ Implemented
+**Priority:** HIGH
+**Files:**
+- `cloudflare-workers/src/utils/cors.js` (improved)
 
-**Что сделано:**
-- Добавлена функция `isValidOrigin()` для защиты от CORS bypass атак:
-  - Блокировка `null` origin (file://, data:, etc.)
-  - Проверка на только HTTP(S) protocols
-  - Блокировка IP-адресов в origin (кроме localhost)
-  - Блокировка подозрительных TLDs (.tk, .ml, .ga, .cf, .gq)
-  - Валидация URL формата
+**What was done:**
+- Added an `isValidOrigin()` function to defend against CORS bypass attacks:
+  - Block `null` origin (file://, data:, etc.)
+  - Allow only HTTP(S) protocols
+  - Block IP-address origins (except localhost)
+  - Block suspicious TLDs (.tk, .ml, .ga, .cf, .gq)
+  - URL format validation
 
-- Улучшена логика `getCorsHeaders()`:
-  - Двойная проверка: формат + whitelist
-  - Детальное логирование отклоненных origins
-  - Безопасный fallback для non-whitelisted origins
+- Improved `getCorsHeaders()` logic:
+  - Double check: format + whitelist
+  - Detailed logging of rejected origins
+  - Safe fallback for non-whitelisted origins
 
-**Защита от атак:**
-- ✅ CORS bypass через null origin
-- ✅ CORS bypass через IP addresses
-- ✅ CORS bypass через suspicious domains
-- ✅ CORS bypass через invalid protocols
+**Attacks mitigated:**
+- ✅ CORS bypass via null origin
+- ✅ CORS bypass via IP addresses
+- ✅ CORS bypass via suspicious domains
+- ✅ CORS bypass via invalid protocols
 
 ---
 
-### 4. 📊 Composite Indexes для Performance
+### 4. 📊 Composite Indexes for Performance
 
-**Статус:** ✅ Реализовано
-**Приоритет:** СРЕДНИЙ
-**Файлы:**
-- `cloudflare-workers/migrations/002_add_composite_indexes.sql` (новый)
-- `database.py` (обновлен)
+**Status:** ✅ Implemented
+**Priority:** MEDIUM
+**Files:**
+- `cloudflare-workers/migrations/002_add_composite_indexes.sql` (new)
+- `database.py` (updated)
 
-**Что сделано:**
+**What was done:**
 
 **Cloudflare D1:**
-- Создана миграция с composite indexes
-- Индексы оптимизируют основные queries:
+- Created a migration with composite indexes
+- The indexes optimize the main queries:
 
 ```sql
--- Для list_user_secrets (WHERE uid = ? AND ttl > ? ORDER BY created_at)
+-- For list_user_secrets (WHERE uid = ? AND ttl > ? ORDER BY created_at)
 CREATE INDEX idx_messages_uid_ttl_created
 ON messages(uid, ttl, created_at DESC);
 
--- Для list_pending_secrets (WHERE creator_uid = ? AND uid = '' AND ttl > ?)
+-- For list_pending_secrets (WHERE creator_uid = ? AND uid = '' AND ttl > ?)
 CREATE INDEX idx_messages_creator_uid_ttl
 ON messages(creator_uid, uid, ttl);
 
--- Для cleanup (WHERE ttl < ? OR created_at < ?)
+-- For cleanup (WHERE ttl < ? OR created_at < ?)
 CREATE INDEX idx_messages_ttl_created_cleanup
 ON messages(ttl, created_at);
 ```
 
 **Python/SQLite:**
-- Добавлены аналогичные composite indexes в `database.py`
-- Автоматически создаются при инициализации базы
+- Added the same composite indexes in `database.py`
+- Created automatically on database initialization
 
-**Применение для D1:**
+**Applying for D1:**
 ```bash
 cd cloudflare-workers
 npx wrangler d1 migrations apply INIGMA_DB --env production
 ```
 
-**Ожидаемое улучшение производительности:**
-- List queries: **~30-50% быстрее**
-- Cleanup queries: **~40-60% быстрее**
+**Expected performance improvement:**
+- List queries: **~30-50% faster**
+- Cleanup queries: **~40-60% faster**
 
 ---
 
 ### 5. 🧹 Cleanup Unused Code
 
-**Статус:** ✅ Завершено
-**Приоритет:** НИЗКИЙ
-**Файлы:**
-- `main.py` (очищено)
-- `database.py` (очищено)
-- `requirements.txt` (обновлено)
-- `cloudflare-workers/package.json` (обновлено)
-- `cloudflare-workers/tsconfig.json` (удалено)
+**Status:** ✅ Done
+**Priority:** LOW
+**Files:**
+- `main.py` (cleaned)
+- `database.py` (cleaned)
+- `requirements.txt` (updated)
+- `cloudflare-workers/package.json` (updated)
+- `cloudflare-workers/tsconfig.json` (removed)
 
-**Что удалено:**
+**What was removed:**
 
 **Python:**
 ```python
@@ -202,117 +223,121 @@ npx wrangler d1 migrations apply INIGMA_DB --env production
 // package.json - unused dependency
 - "@cloudflare/workers-types": "^4.0.0"
 
-// Удален файл
-- cloudflare-workers/tsconfig.json (TypeScript не используется)
+// Removed file
+- cloudflare-workers/tsconfig.json (TypeScript is not used)
 ```
 
-**Результат:**
-- **7 неиспользуемых imports** удалено
-- **1 неиспользуемая функция** удалена
-- **2 неиспользуемые зависимости** удалены
-- **1 неиспользуемый файл** удален
+**Result:**
+- **7 unused imports** removed
+- **1 unused function** removed
+- **2 unused dependencies** removed
+- **1 unused file** removed
 
 ---
 
-## 📋 Анализ Архитектуры Ключей
+## 📋 Key Architecture Analysis
 
-**Вывод:** Текущая архитектура хранения ключей **правильная и безопасная** ✅
+**Conclusion:** the current key-storage architecture is **correct and secure** ✅
 
-### Текущая реализация:
+### Current implementation:
 
-1. **RSA ключи (2048-bit)**
-   - Генерируются с `extractable: false` (non-extractable)
-   - Хранятся в **IndexedDB** (не в localStorage!)
-   - Используются для шифрования/дешифрования user's symmetric key
+1. **RSA keys (2048-bit)**
+   - Generated with `extractable: false` (non-extractable)
+   - Stored in **IndexedDB** (not localStorage!)
+   - Used to encrypt/decrypt the user's symmetric key
 
-2. **Symmetric ключ пользователя (32 chars)**
-   - Генерируется один раз при первом запуске
-   - Шифруется RSA публичным ключом
-   - **Зашифрованная** версия хранится в localStorage
-   - Расшифровывается RSA приватным ключом когда нужен
-   - Используется для генерации UID (SHA-256 hash)
+2. **User symmetric key (32 chars)**
+   - Generated once on first run
+   - Encrypted with the RSA public key
+   - The **encrypted** version is stored in localStorage
+   - Decrypted with the RSA private key when needed
+   - Used to derive the UID (SHA-256 hash)
 
-3. **Symmetric ключи для секретов**
-   - Каждый секрет получает **уникальный** ключ
-   - Ключ передается через URL fragment (#key=...)
-   - НЕ хранится нигде постоянно
+3. **Per-secret symmetric keys**
+   - Each secret gets a **unique** key
+   - The key is delivered via the URL fragment (#key=...)
+   - Never stored persistently anywhere
 
-### Безопасность:
+### Security:
 
-✅ RSA keys non-extractable в IndexedDB
-✅ User symmetric key зашифрован в localStorage
-✅ Secret keys эфемерные (только в URL)
-✅ Нет plaintext keys нигде в хранилище
+✅ RSA keys non-extractable in IndexedDB
+✅ User symmetric key encrypted in localStorage
+✅ Secret keys ephemeral (URL only)
+✅ No plaintext keys anywhere in storage
 
-**Рекомендация:** Оставить как есть. Архитектура безопасна.
+**Recommendation:** leave as is. The architecture is secure.
 
 ---
 
-## 🚫 Что НЕ было изменено (по запросу)
+## 🚫 What Was NOT Changed (by request)
 
-### Аутентификация/Авторизация
+### Authentication/Authorization
 
-**Статус:** Не изменено (by design)
-**Причина:** Архитектурное решение - у приложения нет традиционной аутентификации
+**Status:** Unchanged (by design)
+**Reason:** Architectural decision — the app has no traditional authentication
 
-Система работает на основе:
+The system is based on:
 - Client-side encryption
-- UID генерируется из симметричного ключа пользователя
-- Сервер не знает и не проверяет identity пользователя
-- Это zero-knowledge architecture by design
+- A UID derived from the user's symmetric key
+- The server does not know or verify the user's identity
+- This is a zero-knowledge architecture by design
 
 ### CSP Headers
 
-**Статус:** Не изменено
-**Причина:** Попытки ужесточения CSP ломают функционал
+**Status:** Unchanged
+**Reason:** Attempts to tighten the CSP broke functionality
 
-Текущая CSP использует `'unsafe-inline'` и `'unsafe-eval'` для:
+> **Outdated as of the snapshot above.** The CSP is now nonce-based with no
+> `unsafe-inline`/`unsafe-eval` for scripts, using the Alpine.js CSP build.
+
+The CSP at the time used `'unsafe-inline'` and `'unsafe-eval'` for:
 - TailwindCSS CDN
 - Alpine.js
 - Font Awesome
 
-Попытки убрать приводят к нерабочему интерфейсу.
+Removing them used to result in a broken UI.
 
 ### Code Duplication (Python vs Cloudflare)
 
-**Статус:** Не изменено
-**Причина:** Намеренная дупликация для поддержки двух платформ
+**Status:** Unchanged
+**Reason:** Intentional duplication to support both platforms
 
-- **Cloudflare Workers:** Production (inigma.idone.su)
-- **Python/Docker:** Локальная разработка и self-hosted deployment
+- **Cloudflare Workers:** production (inigma.idone.su)
+- **Python/Docker:** local development and self-hosted deployment
 
 ---
 
 ## 📦 Deployment Instructions
 
-### ✅ Автоматический Deploy через GitHub Actions (Рекомендуется)
+### ✅ Automatic Deploy via GitHub Actions (Recommended)
 
-**Всё настроено автоматически!** При push в `main` branch:
+On push to the `main` branch the workflow:
 
-1. ✅ GitHub Actions проверяет/создаёт KV namespace для rate limiting
-2. ✅ Автоматически обновляет `wrangler.toml` с KV ID
-3. ✅ Применяет D1 миграции (идемпотентно - safe для повторного запуска)
-4. ✅ Build и deploy на Cloudflare Workers
+1. ✅ Builds the worker (`npm ci` + `npm run build`)
+2. ✅ Applies D1 migrations (idempotent — safe to re-run)
+3. ✅ Builds and deploys to Cloudflare Workers (production)
 
-**Требуется только:**
-- GitHub Secrets настроены: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+**Required:**
+- GitHub Secrets configured: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+- KV namespace `INIGMA_KV` configured in `wrangler.toml` (already done)
 
-**Для ручного запуска workflow:**
+**To run the workflow manually:**
 - GitHub → Actions → "Deploy to Cloudflare Workers" → Run workflow
 
-**Никаких ручных команд не нужно!**
+> Note: the workflow does **not** create the KV namespace or edit
+> `wrangler.toml`. It only migrates and deploys. See `AUTOMATED_DEPLOYMENT.md`.
 
-### Cloudflare Workers (Ручной Deploy - Опционально)
+### Cloudflare Workers (Manual Deploy - Optional)
 
-Если нужен ручной deploy локально:
+If you need to deploy manually:
 
 ```bash
 cd cloudflare-workers
 
-# 1. Setup KV namespaces (в GitHub Actions делается автоматически)
-npx wrangler kv namespace create "RATE_LIMIT_KV" --env production
+# 1. Set up the KV namespace (one time)
+npx wrangler kv namespace create "INIGMA_KV" --env production
 
-# 2. Apply database migrations (в GitHub Actions делается автоматически)
+# 2. Apply database migrations
 npx wrangler d1 migrations apply INIGMA_DB --env production --remote
 
 # 3. Update dependencies
@@ -328,7 +353,7 @@ npm run deploy:production
 # 1. Update dependencies
 pip install -r requirements.txt
 
-# 2. Database migrations автоматически применяются при старте
+# 2. Database migrations apply automatically on startup
 
 # 3. Run locally
 python main.py
@@ -342,35 +367,35 @@ docker-compose up --build
 ## 🔍 Testing Checklist
 
 ### Rate Limiting
-- [ ] Create 15 messages быстро → 10 успешно, 5 с 429 error
-- [ ] Проверить headers: X-RateLimit-* в responses
-- [ ] Проверить Retry-After в 429 responses
-- [ ] Проверить что лимиты reset после window
+- [ ] Create 15 messages quickly → 10 succeed, 5 get 429
+- [ ] Check headers: X-RateLimit-* in responses
+- [ ] Check Retry-After in 429 responses
+- [ ] Verify limits reset after the window
 
 ### Size Limits
-- [ ] Попытка отправить >2MB encrypted data → 400 error
-- [ ] Попытка отправить >100 chars custom name → 400 error
-- [ ] Валидный base64 data → успех
-- [ ] Невалидный base64 data → 400 error
+- [ ] Attempt to send >2MB encrypted data → 400 error
+- [ ] Attempt to send >100-char custom name → 400 error
+- [ ] Valid base64 data → success
+- [ ] Invalid base64 data → 400 error
 
 ### CORS Validation
-- [ ] Request с whitelisted origin → CORS headers правильные
-- [ ] Request с non-whitelisted origin → blocked
-- [ ] Request с null origin → blocked
-- [ ] Request с IP-based origin → blocked
+- [ ] Request with whitelisted origin → correct CORS headers
+- [ ] Request with non-whitelisted origin → blocked
+- [ ] Request with null origin → blocked
+- [ ] Request with IP-based origin → blocked
 
 ### Composite Indexes
-- [ ] Проверить query plan для list_user_secrets
-- [ ] Проверить query plan для list_pending_secrets
-- [ ] Проверить query plan для cleanup
-- [ ] Убедиться что используются composite indexes
+- [ ] Check the query plan for list_user_secrets
+- [ ] Check the query plan for list_pending_secrets
+- [ ] Check the query plan for cleanup
+- [ ] Confirm composite indexes are used
 
 ---
 
 ## 📈 Expected Performance Improvements
 
-| Метрика | До | После | Улучшение |
-|---------|-----|-------|-----------|
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
 | Rate Limiting | ❌ None | ✅ KV-based | 100% protection |
 | Input Validation | ⚠️ Basic | ✅ Strict | +30% security |
 | CORS Protection | ⚠️ Whitelist only | ✅ Whitelist + validation | +50% security |
@@ -382,63 +407,63 @@ docker-compose up --build
 
 ## 🐛 Known Issues / Limitations
 
-1. **Rate Limiting требует KV setup**
-   - Без KV namespace rate limiting отключается
-   - Для локальной разработки это OK (показывает warning)
-   - Для production **критично** настроить KV
+1. **Rate Limiting requires KV setup**
+   - Without a KV namespace, rate limiting is disabled
+   - For local development this is OK (shows a warning)
+   - For production it is **critical** to configure KV
 
-2. **Composite indexes migration для D1**
-   - Нужно manually применить миграцию
-   - Команда: `npx wrangler d1 migrations apply INIGMA_DB --env production`
+2. **Composite indexes migration for D1**
+   - Must be applied manually
+   - Command: `npx wrangler d1 migrations apply INIGMA_DB --env production`
 
-3. **CSP Headers остаются слабыми**
-   - `'unsafe-inline'` и `'unsafe-eval'` still present
-   - Необходимы для CDN dependencies
-   - Альтернатива: self-host всех dependencies (future work)
+3. **CSP Headers remain weak** *(no longer true — see snapshot note above)*
+   - `'unsafe-inline'` and `'unsafe-eval'` were still present at the time
+   - They were needed for CDN dependencies
+   - Alternative: self-host all dependencies (future work)
 
 ---
 
 ## 📚 Documentation
 
-- `cloudflare-workers/RATE_LIMIT_SETUP.md` - Подробная инструкция по rate limiting
-- `cloudflare-workers/migrations/002_add_composite_indexes.sql` - SQL миграция
-- `IMPROVEMENTS_SUMMARY.md` (этот файл) - Общий summary
+- `cloudflare-workers/RATE_LIMIT_SETUP.md` - Detailed rate limiting instructions
+- `cloudflare-workers/migrations/002_add_composite_indexes.sql` - SQL migration
+- `IMPROVEMENTS_SUMMARY.md` (this file) - Overall summary
 
 ---
 
 ## 🎯 Next Steps (Optional Future Work)
 
 ### High Priority
-- [ ] Monitor rate limiting в production (Cloudflare Dashboard)
-- [ ] Setup alerts для rate limit violations
-- [ ] Tune rate limit values на основе реального traffic
+- [ ] Monitor rate limiting in production (Cloudflare Dashboard)
+- [ ] Set up alerts for rate-limit violations
+- [ ] Tune rate-limit values based on real traffic
 
 ### Medium Priority
 - [ ] Self-host TailwindCSS, Alpine.js, Font Awesome
-- [ ] Improve CSP после self-hosting
-- [ ] Add metrics/monitoring для query performance
+- [ ] Improve CSP after self-hosting
+- [ ] Add metrics/monitoring for query performance
 
 ### Low Priority
-- [ ] Migrate к одной платформе (Cloudflare OR Python)
+- [ ] Migrate to a single platform (Cloudflare OR Python)
 - [ ] Add automated security scanning (Snyk, Dependabot)
-- [ ] Add integration tests для rate limiting
+- [ ] Add integration tests for rate limiting
 
 ---
 
 ## ✅ Summary
 
-**Завершено:**
-- ✅ Rate limiting для Cloudflare Workers (КРИТИЧНО)
-- ✅ Size limits улучшены
-- ✅ CORS validation добавлена
-- ✅ Composite indexes для performance
-- ✅ Cleanup unused code
+**Completed:**
+- ✅ Rate limiting for Cloudflare Workers (CRITICAL)
+- ✅ Size limits improved
+- ✅ CORS validation added
+- ✅ Composite indexes for performance
+- ✅ Cleanup of unused code
 
 **Security Score:**
-- **До:** 6.75/10 (умеренный риск)
-- **После:** ~8.0/10 (хороший уровень)
+- **Before:** 6.75/10 (moderate risk)
+- **After:** ~8.0/10 (good level)
 
-**Основные улучшения:**
+**Main improvements:**
 - **Rate Limiting:** 2/10 → 9/10 (+350%)
 - **Input Validation:** 8/10 → 9/10 (+12%)
 - **CORS Security:** 7/10 → 9/10 (+28%)

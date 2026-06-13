@@ -160,8 +160,8 @@ class TestCreateAndView:
         assert resp.json()["custom_name"] == ""
 
     def test_unicode_plaintext(self, http_client, crypto_client):
-        """Encrypt/decrypt round-trip works with unicode: cyrillic, emoji, CJK."""
-        plaintext = "Привет мир! 🔐 こんにちは 中文"
+        """Encrypt/decrypt round-trip works with unicode: accents, greek, emoji, CJK."""
+        plaintext = "Grüße! 🔐 こんにちは 中文 Ωμέγα café"
         view_id, password, _, _ = _create_secret(
             http_client, crypto_client, plaintext=plaintext
         )
